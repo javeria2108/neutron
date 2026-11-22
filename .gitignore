@@ -1,0 +1,32 @@
+# Dependencies and generated output
+node_modules/
+.next/
+out/
+dist/
+build/
+next-env.d.ts
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*service-account*.json
+*firebase-adminsdk*.json
+.firebase/
+.vercel/
+.aws/
+.codex/
+
+# Logs and local editor files
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
