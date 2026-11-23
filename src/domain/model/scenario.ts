@@ -58,3 +58,12 @@ export function connectionError(nodes: ServiceNode[], edges: Dependency[], sourc
   }
   return null
 }
+
+export const simulationLimits = {
+  processingLatencyMs: [0, 60000],
+  maxConcurrent: [1, 10000],
+  queueCapacity: [0, 10000],
+  timeoutMs: [1, 60000],
+  maxRetries: [0, 10],
+  retryBackoffMs: [0, 60000],
+} as const

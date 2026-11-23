@@ -30,10 +30,12 @@ Use integration coverage for the checkout demo and AI edit boundaries. Reserve i
 ## ADR-010: Deliver product features directly
 Start the editor with the five-node checkout graph and the production scenario fields. Keep canvas coordinates in presentation state. Allow disconnected components while editing and require a reachable graph before running. Editor defaults are scenario inputs. The demo workload still needs calibration against engine output.
 
+## ADR-011: Baseline engine semantics
+The arrival window is half-open. Drain accepted work after the final arrival. At equal virtual times process local completions (including their synchronous responses), deadlines, retries, then arrivals. Within each class use queue sequence order. Services hold a concurrency slot while awaiting sequential dependencies. A timeout releases the caller from waiting, while the downstream work continues and a late reply is recorded. Each attempt has one accepted outcome. Key failure sampling by seed and request/attempt path. Root latency percentiles use successful requests only. Baseline runs reject configured outages and breakers until the mitigation feature implements them. Cap scheduled actions at 100,000 and trace records at 200,000 per run.
+
 ## Open decisions (resolve early)
 - Exact Firebase AI Logic SDK version, supported local inference modes and device compatibility: verify from current official docs.
 - Whether structured JSON output is natively enforced locally or needs prompt+parse+retry: test.
-- Event priority tie-breaks at equal virtual timestamp: specify in code/tests.
 - Failure semantics for in-flight calls during outage: default start-time outcome; verify fixture.
 - Circuit breaker threshold and half-open behavior: freeze before implementation.
 - Hosting target and billing requirements: verify early.
