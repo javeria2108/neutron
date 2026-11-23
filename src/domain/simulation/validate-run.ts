@@ -12,8 +12,12 @@ export function validateRun(scenario: Scenario) {
   const { nodes, edges, workload } = scenario
   integer(nodes.length, 1, 20, 'Component count')
   if (scenario.schemaVersion !== 1) throw new SimulationError('Unsupported scenario version.')
-  if (scenario.faults.length || edges.some(edge => edge.circuitBreaker)) {
-    throw new SimulationError('Baseline runs require an empty fault schedule and disabled circuit breakers.')
+  for (const fault of scenario.faults) {
+    if (fault.kind !== 'outage' || !nodes.some(node => node.id === fault.targetId)) {
+      throw new SimulationError('An outage must target an existing component.')
+    }
+    integer(fault.startMs, 0, workload.durationMs - 1, 'Outage start')
+    integer(fault.endMs, fault.startMs + 1, workload.durationMs, 'Outage end')
   }
   if (nodes.filter(node => node.kind === 'Gateway').length !== 1 ||
       !nodes.some(node => node.kind === 'Gateway' && node.id === workload.rootId)) {
@@ -40,6 +44,13 @@ export function validateRun(scenario: Scenario) {
     integer(edge.timeoutMs, ...simulationLimits.timeoutMs, 'Dependency timeout')
     integer(edge.maxRetries, ...simulationLimits.maxRetries, 'Retry limit')
     integer(edge.retryBackoffMs, ...simulationLimits.retryBackoffMs, 'Retry backoff')
+    const policy = edge.circuitBreaker
+    if (policy) {
+      integer(policy.failureThreshold, 1, 10000, 'Breaker failure threshold')
+      integer(policy.windowMs, 1, 60000, 'Breaker rolling window')
+      integer(policy.openDurationMs, 1, 60000, 'Breaker open duration')
+      integer(policy.halfOpenMaxProbes, 1, 100, 'Breaker probe limit')
+    }
     validated.push(edge)
   }
   const disconnected = nodes.find(node => node.id !== workload.rootId && !edges.some(edge => edge.target === node.id))

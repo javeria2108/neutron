@@ -1,9 +1,10 @@
 import type { Dependency, Scenario, ServiceNode } from '../model/scenario'
+import { CircuitBreaker, type BreakerTransition } from './circuit-breaker'
 import { EventQueue } from './event-queue'
 import { SimulationError, validateRun } from './validate-run'
 
 type Outcome = 'success' | 'failed' | 'timeout' | 'rejected'
-type Kind = 'arrival' | 'service-start' | 'service-complete' | 'service-finished' | 'queued' | 'queue-drop'
+type Kind = BreakerTransition | 'outage-hit' | 'fast-fail' | 'arrival' | 'service-start' | 'service-complete' | 'service-finished' | 'queued' | 'queue-drop'
   | 'attempt' | 'timeout' | 'response' | 'retry' | 'late-response' | 'root-finished'
 interface TraceEvent {
   callerId?: string
@@ -48,9 +49,12 @@ export function runSimulation(draft: Scenario) {
   const services = new Map(scenario.nodes.map(node => [node.id, {
     node, active: 0, waiting: [] as Call[], dependencies: scenario.edges.filter(edge => edge.source === node.id),
   }]))
+  const breakers = new Map(scenario.edges.flatMap(edge => edge.circuitBreaker
+    ? [[edge.id, new CircuitBreaker(edge.circuitBreaker)] as const] : []))
+  const faultTimeline: { timeMs: number; targetId: string; kind: 'outage-start' | 'outage-end' }[] = []
   const trace: TraceEvent[] = []
   const latencies: number[] = []
-  const metrics = { attempted: 0, success: 0, failed: 0, timeout: 0, rejected: 0, retries: 0, queueDrops: 0 }
+  const metrics = { attempted: 0, success: 0, failed: 0, timeout: 0, rejected: 0, retries: 0, queueDrops: 0, fastFailures: 0, circuitOpens: 0 }
   let now = 0
   let scheduled = 0
 
@@ -97,8 +101,10 @@ export function runSimulation(draft: Scenario) {
       call.reply(outcome)
     }
 
+    const outage = scenario.faults.some(fault => fault.targetId === call.node.id && fault.startMs <= now && now < fault.endMs)
+    if (outage) record(call, 'outage-hit')
     schedule(call.node.processingLatencyMs, 0, () => {
-      const failed = failureSample(workload.seed, call.attemptId) < call.node.baseFailureRate
+      const failed = outage || failureSample(workload.seed, call.attemptId) < call.node.baseFailureRate
       record(call, 'service-complete', failed ? 'failed' : 'success')
       advance(failed ? 'failed' : 'success')
     })
@@ -114,9 +120,22 @@ export function runSimulation(draft: Scenario) {
         settle('response', outcome)
       },
     }
+    const breaker = breakers.get(edge.id)
+    const epoch = breaker?.enter(now, event => record(child, event))
+    if (epoch === null) {
+      metrics.fastFailures++
+      record(child, 'fast-fail', 'rejected')
+      resume('rejected')
+      return
+    }
     function settle(kind: 'timeout' | 'response', outcome: Outcome) {
       pending = false
       record(child, kind, outcome)
+      if (breaker && typeof epoch === 'number') {
+        const transition = breaker.finish(epoch, now, outcome)
+        if (transition) record(child, transition)
+        if (transition === 'circuit-open') metrics.circuitOpens++
+      }
       if (outcome !== 'success' && retry < edge.maxRetries) {
         schedule(edge.retryBackoffMs, 2, () => {
           metrics.retries++
@@ -151,6 +170,10 @@ export function runSimulation(draft: Scenario) {
       schedule(next - now, 3, () => arrive(index + 1))
     }
   }
+  for (const fault of scenario.faults) {
+    schedule(fault.startMs, -1, () => faultTimeline.push({ timeMs: now, targetId: fault.targetId, kind: 'outage-start' }))
+    schedule(fault.endMs, -1, () => faultTimeline.push({ timeMs: now, targetId: fault.targetId, kind: 'outage-end' }))
+  }
   if (count) schedule(0, 3, () => arrive(0))
   for (let event = queue.dequeue(); event; event = queue.dequeue()) {
     now = event.timeMs
@@ -158,7 +181,7 @@ export function runSimulation(draft: Scenario) {
   }
   latencies.sort((a, b) => a - b)
   const percentile = (fraction: number) => latencies[Math.ceil(fraction * latencies.length) - 1] ?? null
-  return freezeTree({ engineVersion: '1.0-baseline', scenario, trace,
+  return freezeTree({ engineVersion: '1.1', scenario, faultTimeline, trace,
     metrics: { ...metrics, p50Ms: percentile(0.5), p95Ms: percentile(0.95), p99Ms: percentile(0.99) } })
 }
 
