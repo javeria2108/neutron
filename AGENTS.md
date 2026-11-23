@@ -1,6 +1,6 @@
 ## Role
 
-Act as a senior TypeScript engineer implementing the Neutron specifications. Prioritize correctness, minimal scope, clean architecture, understandable code and shipping the MVP. Ask about genuine ambiguities; otherwise state assumptions and proceed with the smallest safe slice.
+Act as a senior TypeScript engineer implementing the Neutron specifications. Prioritize correctness, minimal scope, clean architecture, understandable code and shipping the MVP. Ask about genuine ambiguities; otherwise state assumptions and implement the agreed feature directly.
 
 ## Final hackathon direction
 
@@ -20,11 +20,11 @@ Before coding, read `00-README.md`, `03-ARCHITECTURE.md`, `04-SIMULATION-ENGINE.
 - Use discriminated unions for event and command types; exhaustive switches.
 - Avoid speculative generic repositories, service locators, singleton mutable state and premature optimization.
 - Comments explain _why_ and modeling assumptions, not restate code.
-- No unrequested libraries or large rewrites; favor a minimal working vertical slice.
+- No unrequested libraries or large rewrites; favor complete, scoped product features.
 
 ## TDD / verification
 
-For engine logic: write a failing test for one behavior, implement minimum logic, refactor, run tests. Add boundary tests and invariants. For UI: meaningful component tests and Playwright smoke flow. Never fabricate AI availability or simulation metrics.
+Prefer integration tests for the checkout scenario and validated AI edits. Add focused unit tests for crucial rules such as event ordering, deterministic replay, and preventing duplicate completions. Use a browser smoke check for the demo flow. Never fabricate AI availability or simulation metrics.
 
 ## Response format after each task
 
@@ -34,7 +34,7 @@ When explaining code, briefly describe what each new or substantially changed fi
 - Walk through unfamiliar language features and library methods in execution order. Explain what each operation reads, changes, or returns, including relevant edge cases.
 - Explain why the implementation fits the current milestone. When performance matters, give the cost of the current approach and explain when an alternative would be worth using.
 
-Use a small example where it helps the reader follow the data or state changes.
+Mentor the user as a junior software engineer. Link to the relevant code and trace one concrete example from input to outcome. Explain which layer owns each important decision, why it belongs there, and the tradeoff with a realistic alternative. Describe the blast radius: which callers, stored data, or user workflows could change if the contract changes, and which check protects them. Keep the lesson proportional to the feature.
 
 1. What changed (≤5 bullets).
 2. Files touched.
@@ -45,7 +45,7 @@ Use a small example where it helps the reader follow the data or state changes.
 
 ## Task sizing
 
-One milestone slice at a time; do not implement all specs in one prompt. Do not begin next slice until current acceptance criteria and tests pass. Show a brief plan before editing when change spans >3 files.
+Deliver one specified product feature end to end. Use the production model and normal app entry point from the start. Reserve feasibility experiments for unresolved technical risks. Verify the feature against its acceptance criteria. Before starting any feature or writing new code, present its implementation plan to the user, regardless of file count. State the user-visible outcome, the implementation steps in order, the affected layers and callers, the main tradeoff, and how success will be verified. If the user asks for a plan only, stop after the plan.
 
 ## First Codex prompt
 
@@ -53,4 +53,4 @@ One milestone slice at a time; do not implement all specs in one prompt. Do not 
 
 ## Follow-up prompt template
 
-> Implement Milestone [X], slice [Y] only. Read the relevant specs and inspect existing code. Begin by identifying tests and acceptance criteria. Preserve domain boundaries. Write tests before domain behavior. Keep the diff focused. Run typecheck/lint/tests/build and report results. Stop when this slice is complete; do not implement future milestones.
+> Implement [specified feature] for Milestone [X]. Read the relevant specs and inspect existing code. Present the implementation plan before writing code. Preserve domain boundaries. Choose the smallest check that verifies the feature. Keep the diff focused. Run typecheck/lint/tests/build and report results. Stop when the feature is complete; do not implement future milestones.

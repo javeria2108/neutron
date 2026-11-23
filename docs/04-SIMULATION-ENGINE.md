@@ -49,4 +49,4 @@ Freeze arrival timestamps, root IDs, fault schedule and seed. Run `faulted` and 
 7. Same arrivals and fault schedule with/without breaker → comparison deterministic.
 
 ## Engine development order
-First single-node success; then graph dependency propagation; then capacity/queue; then timeouts; then retries; then outage; then circuit breaker; finally metrics, snapshots, playback. Write tests before each mechanism. Resist adding queue nodes until semantics are modeled and tested.
+Implement the specified synchronous DAG engine against the checkout scenario. Cover capacity, queues, timeouts, retries, outages, and breakers in the production model. Use small fixtures to verify crucial ordering rules.

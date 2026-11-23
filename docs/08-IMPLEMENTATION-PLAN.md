@@ -1,38 +1,19 @@
-# Implementation roadmap — deadline Nov 30, 2026
+# Implementation roadmap
 
-## Scheduling principle
-As of Nov 19, ~11 days remain. Work in vertical slices with a deployable result each day. Do not spend multiple days polishing an empty canvas. Timebox uncertain Firebase local AI feasibility immediately.
+## Current capabilities
 
-### Milestone 0 — Day 1: prove critical assumptions
-- Scaffold Next.js TS strict + lint/test/build.
-- Firebase hybrid inference spike in Chrome; record actual local availability and source; test simple structured command; verify offline after model download.
-- Tiny simulation spike: single service + event queue + seeded workload.
-**Exit:** real local model call demonstrated or explicit blocker documented; unit test of deterministic engine passes.
+The checkout editor supports graph construction, connection validation, service settings and dependency policies. Edits are held in memory. The event scheduler has a golden ordering test. On the separate Firebase feasibility page the user verified cloud inference and offline local inference for structured latency edits.
 
-### Milestone 1 — Days 2–3: simulation core
-- Model/schema, event queue, PRNG, synchronous DAG calls, capacity, timeout/retry, outage, breaker, metrics.
-- Golden fixtures and invariants.
-**Exit:** CLI/unit-test-only scenario demonstrates failure and mitigation deterministically.
+## Remaining features in dependency order
 
-### Milestone 2 — Days 4–5: canvas + configuration
-- React Flow editor, starter template, inspector, graph validation, ELK layout.
-- Run and replay controls; event timeline.
-**Exit:** user can edit starter graph and see real simulated outcomes.
+1. **Run checkout simulation.** Validate the edited scenario at the domain boundary, freeze the input and run a bounded, seeded workload through the synchronous dependency graph using virtual time. Respect capacity, queues, timeouts and retries. Return a versioned run with request outcomes, metrics and an event trace. Identical inputs must replay identically.
+2. **Break, repair and compare.** Schedule the provider outage, apply circuit-breaker behavior and rerun. Populate the comparison drawer and timeline from immutable baseline, faulted and mitigated runs. Show configuration differences, metric definitions and regressions. Hold arrivals and outage schedule fixed between the faulted and mitigated runs.
+3. **Apply natural-language edits.** Integrate Firebase local commands with the editor. Validate a proposed change using the same rules as manual edits, preview the diff and apply it on approval. Verify a fresh offline command, observed source, elapsed time and the unsupported-device fallback.
+4. **Explain an incident.** Build a bounded evidence summary from a completed run. With consent, ask cloud Gemini for an explanation. Check its event and metric references and show the deterministic evidence when the explanation fails validation.
+5. **Save and resume offline.** Persist drafts, canvas positions and completed runs locally. Add validated, versioned JSON export/import and verify that manual editing, running and comparison work after loading and disconnecting.
+6. **Deploy and demonstrate.** Verify accessibility, performance limits and failure states through the checkout journey. Deploy with Firebase App Check configured for the deployed origin, rehearse the mandatory hybrid demo on supported hardware, and finish the setup guide, demo video and submission.
 
-### Milestone 3 — Days 6–7: comparisons + AI
-- Frozen run snapshots; baseline/fault/mitigated comparisons.
-- Firebase local structured edit with preview/approve; cloud evidence explanation with reference checks.
-- Observed inference source, measured elapsed inference time, and offline status. Verify that approved edits preserve completed run results.
-**Exit:** end-to-end primary journey complete.
-
-### Milestone 4 — Days 8–9: persistence, polish, deploy
-- Local save/export/import; accessibility; error states; performance caps; Firebase deploy.
-- Tests for core and critical E2E flow.
-**Exit:** shareable stable demo URL and zero known P0 blockers.
-
-### Milestone 5 — Days 10–11: validation + submission
-- Pass the [mandatory hybrid AI demo gate](05-HYBRID-AI.md#mandatory-hybrid-demo-acceptance) on real hardware; fix edge cases; rehearse 3-minute script; record video; README, architecture diagram, limitations, setup instructions, screenshots; submit before deadline.
-**Exit:** mandatory hybrid demo checks passed, submission assets complete, and working deployment verified.
+Before implementing each feature, present the plan specified in the [working agreement](09-CODEX-INSTRUCTIONS.md).
 
 ## First stretch priority
 Full natural-language architecture generation is the first feature to schedule after the simulation engine and local inference are verified and the MVP gates are met. Validate the generated graph and show a preview before approval.
@@ -41,4 +22,4 @@ Full natural-language architecture generation is the first feature to schedule a
 Cut: cloud full-graph generation → additional fault types → Firestore → multi-template → fancy animation → node palette breadth. **Never cut:** deterministic engine, failure + mitigation comparison, the mandatory hybrid demo gate, tests of invariants, usable demo.
 
 ## Definition of done for each task
-Working behavior + test + error handling + brief documentation + passing typecheck/lint/build. No massive generated docs, speculative abstractions or unrelated refactors.
+Working behavior + a proportionate verification check + error handling + brief documentation + passing typecheck/lint/build. No massive generated docs, speculative abstractions or unrelated refactors.

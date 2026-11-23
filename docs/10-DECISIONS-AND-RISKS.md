@@ -24,6 +24,12 @@ Events are dequeued by ascending virtual time, then ascending numeric priority. 
 ## ADR-008: Firebase feasibility route
 Use reCAPTCHA Enterprise for cloud App Check to match the Firebase web app registration. Use separate local-only and cloud-only requests for the same sample command so cloud submission requires a deliberate click and timings are comparable. Display the response metadata as the observed source and validate the returned sample without applying edits. Live inference and offline behavior require manual verification with a configured Firebase project and supported desktop Chrome. The Firebase umbrella SDK currently installs a Firestore/gRPC dependency chain flagged by npm audit. The feasibility route imports only Firebase App, App Check, and AI Logic. Recheck the advisory after SDK updates.
 
+## ADR-009: Hackathon test scope
+Use integration coverage for the checkout demo and AI edit boundaries. Reserve isolated unit tests for crucial correctness rules. Prioritize delivering and verifying one working slice at a time.
+
+## ADR-010: Deliver product features directly
+Start the editor with the five-node checkout graph and the production scenario fields. Keep canvas coordinates in presentation state. Allow disconnected components while editing and require a reachable graph before running. Editor defaults are scenario inputs. The demo workload still needs calibration against engine output.
+
 ## Open decisions (resolve early)
 - Exact Firebase AI Logic SDK version, supported local inference modes and device compatibility: verify from current official docs.
 - Whether structured JSON output is natively enforced locally or needs prompt+parse+retry: test.
