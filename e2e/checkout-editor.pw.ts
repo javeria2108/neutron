@@ -1,0 +1,32 @@
+import { expect, test } from '@playwright/test'
+
+test('edit the checkout graph and validate service settings', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('.react-flow__node')).toHaveCount(5)
+  await expect(page.locator('.react-flow__edge')).toHaveCount(4)
+  await page.locator('.react-flow__node').filter({ hasText: /^Payments$/ }).click()
+  const latency = page.getByLabel('Processing latency (ms)')
+  await latency.fill('-1')
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await expect(page.getByRole('status')).toContainText('processingLatencyMs')
+  await latency.fill('500')
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await page.getByRole('button', { name: 'Add Service', exact: true }).click()
+  await expect(page.locator('.react-flow__node')).toHaveCount(6)
+  await page.getByRole('button', { name: 'Remove selection' }).click()
+  await page.locator('.react-flow__node').filter({ hasText: /^Payments$/ }).click()
+  await expect(latency).toHaveValue('500')
+  await expect(page.locator('.react-flow__node')).toHaveCount(5)
+})
+
+test('reject a cycle and show its reason on the canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 740, height: 650 })
+  await page.goto('/')
+  await expect(page.locator('.react-flow__edge')).toHaveCount(4)
+  const source = page.locator('[data-id="payments"] .source')
+  const target = page.locator('[data-id="orders"] .target')
+  await source.dragTo(target)
+  const warning = page.getByRole('alert').filter({ hasText: 'This dependency would create a cycle.' })
+  await expect(warning).toBeInViewport()
+  await expect(page.locator('.react-flow__edge')).toHaveCount(4)
+})
