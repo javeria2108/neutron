@@ -4,9 +4,9 @@
 
 The checkout editor supports graph construction, connection validation, service settings and dependency policies. Edits are held in memory. The event scheduler has a golden ordering test. On the separate Firebase feasibility page the user verified cloud inference and offline local inference for structured latency edits.
 
-## Remaining features in dependency order
+## Feature sequence
 
-1. **Run checkout simulation.** Validate the edited scenario at the domain boundary, freeze the input and run a bounded, seeded workload through the synchronous dependency graph using virtual time. Respect capacity, queues, timeouts and retries. Return a versioned run with request outcomes, metrics and an event trace. Identical inputs must replay identically.
+1. **Run checkout simulation (implemented).** The workbench runs the edited scenario locally after validating the graph. The frozen baseline result includes the scenario, engine version, measured root outcomes, latency percentiles and per-request traces. Capacity, queues, timeouts, retries and deterministic replay are supported.
 2. **Break, repair and compare.** Schedule the provider outage, apply circuit-breaker behavior and rerun. Populate the comparison drawer and timeline from immutable baseline, faulted and mitigated runs. Show configuration differences, metric definitions and regressions. Hold arrivals and outage schedule fixed between the faulted and mitigated runs.
 3. **Apply natural-language edits.** Integrate Firebase local commands with the editor. Validate a proposed change using the same rules as manual edits, preview the diff and apply it on approval. Verify a fresh offline command, observed source, elapsed time and the unsupported-device fallback.
 4. **Explain an incident.** Build a bounded evidence summary from a completed run. With consent, ask cloud Gemini for an explanation. Check its event and metric references and show the deterministic evidence when the explanation fails validation.

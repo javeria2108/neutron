@@ -19,6 +19,9 @@ Idle → Validating → Running (in worker if practical) → Completed / Failed 
 ## Metrics
 Top-level: requests attempted, successful, failed, timed out, success %, p50/p95/p99 latency (for completed requests; disclose treatment of failures), retry attempts, queue drops, circuit opens. Per-service: utilization proxy, active requests over virtual time, queue length, failure count. Define every metric in tooltips.
 
+## Checkout replay
+Show completion and the measured run total next to the Run control. Start the guided replay at the first checkout arrival, with a virtual timestamp and a sentence naming the active service. Highlight the receiving component for the current hop. Label outbound calls and returning replies and orient the arrow toward the receiver. Previously traversed dependencies retain a dashed trail through the selected step. Changing the selected checkout starts its own trail at arrival. Let the user pause, step, replay, choose another checkout or jump to the full trace. Playback uses a reading pace independent of virtual time. Start paused for reduced-motion preferences. When the graph draft changes, keep the snapshot trace and suspend graph highlighting until the next run.
+
 ## Before/after
 Show baseline, faulted, mitigated as separate named runs. Comparison must include workload/seed/fault equivalence indicator and config diff. Use percentage-point differences for success rates and absolute/relative differences for latency. Never hide regressions.
 

@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { Background, Controls, MarkerType, ReactFlow, useNodesState, Position, type ReactFlowInstance, type XYPosition, type Connection, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { z } from 'zod'
 import { checkoutScenario } from '@/domain/model/checkout'
-import { connectionError, newDependency, newService, serviceKinds, type ServiceKind } from '@/domain/model/scenario'
+import { connectionError, newDependency, newService, serviceKinds, simulationLimits, type ServiceKind } from '@/domain/model/scenario'
 import InfrastructureSymbol from './infrastructure-symbol'
+import { runSimulation, type RunResult } from '@/domain/simulation/run-simulation'
+import { SimulationError } from '@/domain/simulation/validate-run'
+import { describeStep, indexTrail } from './request-replay'
+import RunSummary from './run-summary'
 import './editor.css'
 
 const starter = checkoutScenario()
@@ -31,11 +35,11 @@ const initialNodes: Node[] = starter.nodes.map((service, index) => ({
 const integer = (min: number, max: number) => z.coerce.number().int().min(min).max(max)
 const serviceSettings = z.object({
   name: z.string().trim().min(1).max(80),
-  processingLatencyMs: integer(0, 60000), maxConcurrent: integer(1, 10000),
-  queueCapacity: integer(0, 10000), baseFailureRate: z.coerce.number().min(0).max(1),
+  processingLatencyMs: integer(...simulationLimits.processingLatencyMs), maxConcurrent: integer(...simulationLimits.maxConcurrent),
+  queueCapacity: integer(...simulationLimits.queueCapacity), baseFailureRate: z.coerce.number().min(0).max(1),
 })
 const edgeSettings = z.object({
-  timeoutMs: integer(1, 60000), maxRetries: integer(0, 10), retryBackoffMs: integer(0, 60000),
+  timeoutMs: integer(...simulationLimits.timeoutMs), maxRetries: integer(...simulationLimits.maxRetries), retryBackoffMs: integer(...simulationLimits.retryBackoffMs),
 })
 const breakerSettings = z.object({
   failureThreshold: integer(1, 10000), windowMs: integer(1, 60000),
@@ -51,6 +55,46 @@ export default function CheckoutEditor() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [selected, select] = useState('gateway')
   const [flow, setFlow] = useState<ReactFlowInstance<Node> | null>(null)
+  const [result, setResult] = useState<RunResult | null>(null)
+  const [runDraft, setRunDraft] = useState<typeof scenario | null>(null)
+  const [requestId, setRequestId] = useState(1)
+  const [step, setStep] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const steps = useMemo(() => result?.trace.filter(event =>
+    event.requestId === requestId && !['service-start', 'service-complete', 'service-finished'].includes(event.kind)
+  ) ?? [], [result, requestId])
+  const current = steps[step]
+  const onGraph = runDraft === scenario ? current : undefined
+  const trail = useMemo(() => indexTrail(steps), [steps])
+  const reply = onGraph?.kind === 'response' || onGraph?.kind === 'late-response'
+  const call = onGraph?.kind === 'attempt'
+  const focusNode = reply || onGraph?.kind === 'timeout' || onGraph?.kind === 'retry'
+    ? onGraph.callerId : onGraph?.nodeId
+  const advancing = playing && !!onGraph && step < steps.length - 1
+  useEffect(() => {
+    if (!advancing) return
+    const timer = window.setTimeout(() => setStep(step + 1), 1700)
+    return () => window.clearTimeout(timer)
+  }, [advancing, step, result, requestId])
+  function chooseRequest(id: number) {
+    setRequestId(id)
+    setStep(0)
+    setPlaying(false)
+  }
+  const [runError, setRunError] = useState('')
+  function runBaseline() {
+    try {
+      setResult(runSimulation(scenario))
+      setRunDraft(scenario)
+      setStep(0)
+      setRequestId(1)
+      setPlaying(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+      setRunError('')
+    } catch (error) {
+      if (!(error instanceof SimulationError)) throw error
+      setRunError(error.message)
+    }
+  }
   const [connectionWarning, setConnectionWarning] = useState('')
   const [message, report] = useState('')
   const service = scenario.nodes.find(node => node.id === selected)
@@ -144,17 +188,50 @@ export default function CheckoutEditor() {
         )}</div>
       </nav>
       <section aria-label="Architecture editor">
-      <div className="toolbar"><h2>Topology</h2><span>{nodes.length} nodes / {scenario.edges.length} dependencies</span></div>
+      <div className="toolbar"><h2>Topology</h2><button type="button" onClick={runBaseline}>Run simulation</button><span>{nodes.length} nodes / {scenario.edges.length} dependencies</span></div>
+      {runError && <p className="run-error" role="alert">{runError}</p>}
+      {result && <div className="replay" aria-label="Checkout replay">
+        <div className="replay-heading"><strong>Run complete</strong>
+          <span>{result.metrics.success} of {result.metrics.attempted} checkouts succeeded</span>
+          <a href="#baseline-results">Inspect results</a></div>
+        {current && <><div className="replay-story" aria-live={advancing ? 'off' : 'polite'}>
+          <span>{current.timeMs} ms</span> {describeStep(result, current)}
+          {current.kind === 'attempt' && <small>The caller is waiting for this dependency.</small>}</div>
+          <div className="replay-controls">
+            <label>Checkout <input type="number" min={1} max={result.metrics.attempted} value={requestId}
+              onChange={event => chooseRequest(Math.max(1, Math.min(result.metrics.attempted, Math.trunc(Number(event.target.value)) || 1)))} /></label>
+            <button onClick={() => { setPlaying(false); setStep(step - 1) }} disabled={!step}>Previous step</button>
+            <button disabled={!onGraph || steps.length < 2} onClick={() => {
+              if (step === steps.length - 1) setStep(0)
+              setPlaying(!advancing)
+            }}>{advancing ? 'Pause' : step === steps.length - 1 ? 'Replay' : 'Play'}</button>
+            <button onClick={() => { setPlaying(false); setStep(step + 1) }} disabled={step === steps.length - 1}>Next step</button>
+            <span>Step {step + 1} of {steps.length}</span>
+          </div></>}
+        {runDraft !== scenario && <p>Draft edited. Run again to follow this graph.</p>}
+      </div>}
       <div className="canvas" onDragOver={event => event.preventDefault()} onDrop={event => {
         event.preventDefault()
         const kind = serviceKinds.find(type => type !== 'Gateway' && type === event.dataTransfer.getData('application/x-neutron-component'))
         if (flow && kind) {
           addService(kind, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))
         }
-      }}><ReactFlow<Node> onInit={initializeCanvas} nodes={nodes.map(node => ({ ...node, selected: node.id === selected }))} edges={scenario.edges.map(item => {
-          const highlighted = [item.id, item.source, item.target].includes(selected)
-          const color = highlighted ? '#9bd7ff' : '#7082a4'
-          return { ...item, style: { stroke: color, strokeWidth: highlighted ? 2.6 : 1.8 }, markerEnd: { type: MarkerType.ArrowClosed, color } }
+      }}><ReactFlow<Node> onInit={initializeCanvas} nodes={nodes.map(node => {
+        const visited = onGraph && (trail.nodes.get(node.id) ?? Infinity) <= step
+        const state = node.id === focusNode ? ' replay-node' : visited ? ' replay-visited' : ''
+        return { ...node, className: node.className + state, selected: node.id === selected }
+      })} edges={scenario.edges.map(item => {
+          const visited = onGraph && (trail.edges.get(JSON.stringify([item.source, item.target])) ?? Infinity) <= step
+          const moving = (call || reply) && onGraph?.callerId === item.source && onGraph.nodeId === item.target
+          const returning = moving && reply
+          const selectedEdge = [item.id, item.source, item.target].includes(selected)
+          const color = moving ? '#ffe796' : visited ? '#80d9ca' : !onGraph && selectedEdge ? '#9bd7ff' : '#7082a4'
+          const marker = { type: MarkerType.ArrowClosed, color, orient: 'auto-start-reverse' }
+          return { ...item, className: moving ? 'replay-hop' : visited ? 'replay-trail' : '',
+            label: moving ? (returning ? 'Reply' : 'Call') : undefined,
+            labelStyle: { fill: '#182338', fontWeight: 700 }, labelBgStyle: { fill: '#ffe796' },
+            style: { stroke: color, strokeWidth: moving ? 4 : visited || selectedEdge ? 2.6 : 1.8 },
+            markerStart: returning ? marker : undefined, markerEnd: returning ? undefined : marker }
         })} defaultEdgeOptions={{ type: 'smoothstep' }} onNodesChange={onNodesChange}
         onConnectStart={() => setConnectionWarning('')} onConnect={connect} deleteKeyCode={null} onNodeClick={(_, node) => select(node.id)}
         onEdgeClick={(_, item) => select(item.id)} fitView>
@@ -162,10 +239,11 @@ export default function CheckoutEditor() {
       </ReactFlow>
         {connectionWarning && <p className="connection-warning" role="alert">{connectionWarning}</p>}
       </div>
+      {result && <RunSummary key={requestId} run={result} requestId={requestId} chooseRequest={chooseRequest} />}
       <details className="comparison"><summary>Run comparison</summary>
-        <p>Completed runs will appear here for comparison under the same workload.</p>
+        <p>Compare baseline, outage and mitigated runs under the same workload.</p>
         <table><caption className="sr-only">Run availability</caption><thead><tr><th>Baseline</th><th>Provider outage</th><th>Mitigated</th></tr></thead>
-          <tbody><tr>{['baseline', 'outage', 'mitigated'].map(run => <td key={run}>Awaiting run</td>)}</tr></tbody></table>
+          <tbody><tr>{['baseline', 'outage', 'mitigated'].map(run => <td key={run}>{run === 'baseline' && result ? 'Completed' : 'Awaiting run'}</td>)}</tr></tbody></table>
       </details>
     </section>
     <aside><div className="inspector-label">Inspector</div>{service && <span className={'inspector-symbol ' + serviceClass(service.kind)}><InfrastructureSymbol kind={service.kind} /></span>}<h2>{service?.name ?? 'Dependency'}</h2><form key={selected} onSubmit={save}>

@@ -30,3 +30,41 @@ test('reject a cycle and show its reason on the canvas', async ({ page }) => {
   await expect(warning).toBeInViewport()
   await expect(page.locator('.react-flow__edge')).toHaveCount(4)
 })
+
+test('run an edited checkout and inspect its measured request latency', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('.react-flow__node').filter({ hasText: /^Payments$/ }).click()
+  await page.getByLabel('Processing latency (ms)').fill('30')
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await page.getByRole('button', { name: 'Run simulation' }).click()
+  await expect(page.getByRole('heading', { name: 'Baseline results' })).toBeVisible()
+  await expect(page.getByText(/Successful request latency/)).toContainText('p95 70 ms')
+  await expect(page.getByRole('row').filter({ hasText: 'root-finished' })).toContainText('70 ms')
+})
+
+test('follow an actual checkout from arrival through its first dependency on the canvas', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Run simulation' }).click()
+  await expect(page.getByText('Run complete', { exact: true })).toBeInViewport()
+  await expect(page.getByText(/Checkout #1 arrived at Gateway/)).toBeInViewport()
+  await expect(page.locator('.replay-node')).toHaveText('Gateway')
+  await page.getByRole('button', { name: 'Next step' }).click()
+  await expect(page.getByText(/Gateway called Orders for checkout #1/)).toBeVisible()
+  await expect(page.locator('.replay-node')).toHaveText('Orders')
+  const next = page.getByRole('button', { name: 'Next step' })
+  await expect(page.locator('.replay-hop')).toHaveText('Call')
+  await next.click() // Orders calls Payments
+  await next.click() // Payments calls the provider
+  await expect(page.locator('.replay-trail')).toHaveCount(2)
+  await next.click() // The provider replies to Payments
+  await expect(page.locator('.replay-hop')).toHaveText('Reply')
+  await expect(page.locator('.replay-hop .react-flow__edge-path')).toHaveAttribute('marker-start', /url/)
+  await expect(page.locator('.replay-node')).toHaveText('Payments')
+  await page.getByRole('button', { name: 'Previous step' }).click()
+  await expect(page.locator('.replay-hop')).toHaveText('Call')
+  await expect(page.locator('.replay-node')).toHaveText('External Payment Provider')
+  await page.getByRole('spinbutton', { name: 'Checkout', exact: true }).fill('2')
+  await expect(page.getByText(/Checkout #2 arrived at Gateway/)).toContainText('100 ms')
+  await expect(page.locator('.replay-trail, .replay-hop')).toHaveCount(0)
+})
