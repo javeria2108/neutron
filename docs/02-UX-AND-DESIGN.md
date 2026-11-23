@@ -31,5 +31,13 @@ Invalid graph → list exact invalid nodes/edges. Unsupported local model → ex
 ## Visual direction
 Engineering workbench: clean typography, restrained neutral palette, meaningful amber/red/green states, ample whitespace, polished charts. Avoid decorative AI art and gratuitous gamification.
 
+## Workbench design
+
+Use a graphite drawing surface with a component library on the left and a settings inspector on the right. Represent each infrastructure type with a distinct outlined symbol and place the service name underneath. Selecting a component outlines its symbol and highlights its incoming and outgoing dependencies. Buttons in the library support both click and drag. An outline lists the actual services by name. On smaller screens the palette sits above the canvas and the inspector below it.
+
+Keep the comparison drawer directly beneath the topology. Before the first run it shows run availability. Once the engine supplies immutable results, use rows for checkout success, timeouts, successful-request p95, retries, and fast failures, with columns for baseline, outage, and mitigated runs. Place the configuration diff and seed/workload/fault equivalence above the values. A selected metric should lead to its contributing events.
+
+Design references: [Wokwi project workspace](https://wokwi.com/projects/new/arduino-uno) and [Raft interactive visualization](https://raft.github.io/).
+
 ## Three-minute demo script
 Load the checkout template, run the baseline, and inject the outage. Ask cloud Gemini to explain the faulted run and show its source, measured latency, and evidence references. Disconnect the network and ask Gemini Nano to propose a circuit breaker. Show its verified local source and measured latency beside the cloud measurement. Approve the draft edit, verify that the faulted snapshot still contains its original results, and rerun offline with the same inputs except for the mitigation. Compare the runs. Verify rejection of a result mutation and the unsupported-device fallback as part of the [full demo gate](05-HYBRID-AI.md#mandatory-hybrid-demo-acceptance).

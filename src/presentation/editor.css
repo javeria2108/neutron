@@ -1,0 +1,121 @@
+body:has(.workbench) { margin: 0; background: #f2f5f3; }
+.workbench { --ink: #182f32; --line: #cfdbd6; --green: #006751; color: var(--ink); font: 1rem/1.5 "Segoe UI", system-ui, sans-serif; min-height: 100vh; }
+.workbench *, .workbench *::before { box-sizing: border-box; }
+.masthead { height: 62px; display: flex; align-items: center; gap: 20px; padding: 0 clamp(18px,3vw,56px); background: #102c31; color: #fff; }
+.brand { display: flex; align-items: center; gap: 12px; font-size: 23px; font-weight: 700; letter-spacing: -.045em; }
+.brand-mark { position: relative; display: block; width: 25px; height: 25px; border: 3px solid #82eac4; border-radius: 50% 12% 50% 12%; transform: rotate(-16deg); }
+.brand-mark::after { content: ''; position: absolute; inset: 5px; background: #82eac4; border-radius: 50%; }
+.product-name { border-left: 1px solid #587174; padding-left: 20px; color: #bad1cf; font-size: 14px; }
+.masthead a { margin-left: auto; color: #cdebe1; font-size: 14px; text-underline-offset: 4px; }
+.scenario-heading, .workspace { max-width: 1720px; margin: auto; padding-inline: clamp(12px,3vw,56px); }
+.scenario-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-block: 28px; }
+.workbench h1,.workbench h2,.workbench p,.workbench dl,.workbench dd { margin: 0; }
+.workbench h1 { font-size: clamp(24px,3vw,42px); line-height: 1.12; letter-spacing: -.055em; }
+.scenario-heading p { color: #4d6461; margin-top: 6px; }
+.workload { display: flex; gap: 18px; }
+.workload div { padding-left: 16px; border-left: 1px solid #bdcfc7; }
+.workload dt,.inspector-label { text-transform: uppercase; letter-spacing: .09em; font-size: 12px; color: #516764; font-weight: 650; }
+.workload dd { white-space: nowrap; font: 600 15px/1.8 ui-monospace, Consolas, monospace; }
+.workspace { display: grid; grid-template-columns: minmax(0,1fr) minmax(245px,285px); gap: 14px; padding-bottom: 24px; align-items: start; }
+.workspace section,.workspace aside { background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 3px 12px #16352a08; }
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.canvas-title { margin-right: auto; }
+.canvas-title h2 { font-size: 17px; line-height: 1.3; }
+.canvas-title span { color: #516764; font-size: 13px; }
+.workspace button,.workspace input,.workspace select { font: inherit; }
+.toolbar select,.toolbar button,.workspace aside button,.workspace aside input:not([type=checkbox]) { border: 1px solid #b6c8c2; border-radius: 6px; padding: 7px 10px; background: white; color: var(--ink); font-size: 14px; }
+.workspace button, .comparison summary { cursor: pointer; }
+.toolbar button:hover,.workspace aside button:hover { background: #e2f2eb; }
+.canvas { height: clamp(380px,54vh,700px); position: relative; background: #f7faf8; }
+.canvas .react-flow__node.service-card { width: 155px; min-height: 62px; display: grid; align-content: center; text-align: left; padding: 10px 14px; border: 1px solid #adbfba; border-top: 3px solid var(--accent,#16846c); border-radius: 8px; font: 640 14px/1.35 "Segoe UI",sans-serif; background: white; color: #1c3234; box-shadow: 0 3px 8px #20393412; }
+.service-card::before { content: var(--label); font: 600 10px/1.7 ui-monospace,Consolas,monospace; color: #435c59; letter-spacing: .08em; }
+.kind-gateway { --label: 'GATEWAY'; --accent: #197963; }
+.kind-service { --label: 'SERVICE'; --accent: #5379c2; }
+.kind-external-api { --label: 'EXTERNAL API'; --accent: #ab6e33; }
+.kind-database { --label: 'DATABASE'; --accent: #8e64ad; }
+.kind-cache { --label: 'CACHE'; --accent: #367e88; }
+.canvas .react-flow__node.service-card.selected { outline: 2px solid var(--green); outline-offset: 2px; }
+.canvas .react-flow__handle { width: 9px; height: 9px; background: #365e55; border: 2px solid white; }
+.canvas .react-flow__edge-path { stroke: #648a83; stroke-width: 2; }
+.canvas .react-flow__edge.selected .react-flow__edge-path { stroke: var(--green); stroke-width: 3; }
+.workspace aside { padding: 19px; }
+.workspace aside h2 { font-size: 23px; letter-spacing: -.035em; margin: 4px 0 12px; }
+.workspace form { display: grid; gap: 11px; }
+.workspace form p { color: #49635e; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.workspace form label { display: grid; gap: 4px; font-size: 14px; font-weight: 550; }
+.workspace form label:has([type=checkbox]) { display: flex; align-items: center; }
+.workspace aside input:not([type=checkbox]) { width: 100%; background: #f7faf8; }
+.workspace aside .save { background: var(--green); color: white; border-color: var(--green); font-weight: 650; }
+.workspace aside .save:hover { background: #004b3f; }
+.workspace aside > button,.workspace aside [role=status]:not(:empty) { margin-top: 12px; }
+.workbench :focus-visible { outline: 3px solid #34877b; outline-offset: 2px; }
+.comparison { border-top: 1px solid var(--line); padding: 13px 18px; }
+.comparison summary { font-weight: 650; }
+.comparison p { color: #516764; margin: 10px 0; font-size: 14px; }
+.comparison table { border-collapse: collapse; width: 100%; text-align: left; font-size: 14px; }
+.comparison td,.comparison th { border-top: 1px solid var(--line); padding: 8px; }
+.connection-warning { position: absolute; top: .75rem; left: 50%; transform: translateX(-50%); z-index: 5; width: max-content; max-width: 88%; padding: .5rem .85rem; background: #fff2d9; color: #582d00; border: 1px solid #995800; border-radius: .35rem; pointer-events: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
+@media(max-width:850px) { .workspace { grid-template-columns: 1fr; } .scenario-heading { align-items: start; flex-direction: column; padding-block: 18px; } .canvas { height: 48vh; min-height: 300px; } }
+@media(max-width:480px) { .product-name { display:none; } .toolbar { padding: 12px; } .canvas-title { flex-basis: 100%; } .workload div:first-child { border: 0; padding-left: 0; } }
+/* The topology and its tools share a single drawing surface. */
+.workbench { --ink:#dce4f4; --line:#354059; --green:#96caff; background:#111726; color:#e4ebf8; }
+.masthead { background:#0e1320; border-bottom:1px solid #30384c; height:54px; }
+.brand-mark { border-color:#a9b9ff; }
+.brand-mark::after { background:#a9b9ff; }
+.masthead a,.product-name { color:#bcc9e2; }
+.scenario-heading { padding-block:18px; }
+.workbench h1 { font-size:clamp(22px,2.2vw,32px); letter-spacing:-.04em; }
+.workload dt,.inspector-label { color:#adbcd3; }
+.workload div { border-color:#40506a; }
+.workspace { grid-template-columns:164px minmax(0,1fr) 246px; gap:0; align-items:stretch; }
+.library,.workspace aside,.workspace section { border:1px solid #343e53; border-radius:0; box-shadow:none; background:#1c2435; }
+.library { border-radius:10px 0 0 10px; padding:18px 12px; }
+.library h2,.toolbar h2,.inspector-label { font-size:14px; font-weight:650; }
+.library p,.toolbar span { font-size:12px; color:#b4c1d7; }
+.palette,.outline { display:grid; gap:5px; margin-top:12px; }
+.library button { display:flex; align-items:center; gap:9px; padding:8px; color:#e2e8f4; background:#242e42; border:1px solid #3a475e; border-radius:6px; text-align:left; font-size:14px; }
+.library svg { flex:none; width:19px; color:var(--accent,#afc3dc); }
+.library button:hover,.library button[aria-pressed=true] { background:#313f59; border-color:#849cbe; }
+.outline { margin-top:30px; }
+.outline button { background:transparent; border-color:transparent; font-size:13px; }
+.workspace section { min-width:0; border-inline:0; }
+.toolbar { padding:12px 15px; justify-content:space-between; }
+.canvas { height:clamp(440px,64vh,810px); background:radial-gradient(ellipse at 55% 45%,#232e46,#141c2d 75%); }
+.canvas .react-flow__node.service-card { padding:0; width:150px; background:transparent; border:0; box-shadow:none; text-align:center; color:#f1f5ff; }
+.service-card::before { content:none; }
+.node-face { display:grid; justify-items:center; gap:8px; font-size:15px; }
+.node-face strong { padding:2px 6px; background:#1b2437; border-radius:4px; }
+.node-symbol,.inspector-symbol { display:inline-grid; place-items:center; width:54px; height:54px; border:1.5px solid var(--accent); color:var(--accent); border-radius:14px; background:#222d43; box-shadow:0 4px 10px #080e1b55; }
+.node-symbol svg { width:29px; height:29px; }
+.kind-gateway { --accent:#79e5c7; }
+.kind-service { --accent:#a1b9ff; }
+.kind-external-api { --accent:#ffc987; }
+.kind-database { --accent:#d9a7ff; }
+.kind-cache { --accent:#83dbfa; }
+.canvas .react-flow__node.service-card.selected { outline:0; }
+.service-card.selected .node-symbol { box-shadow:0 0 0 4px #23344b,0 0 0 5px var(--accent); }
+.canvas .react-flow__handle { background:#b5c9ec; border:2px solid #28374c; width:10px; height:10px; }
+.canvas .react-flow__handle-left,.canvas .react-flow__handle-right { top:27px; }
+.canvas .react-flow__handle-left { left:calc(50% - 27px); }
+.canvas .react-flow__handle-right { right:calc(50% - 27px); }
+.canvas .react-flow__attribution { background:#202b40; }
+.canvas .react-flow__attribution a { color:#b5c9de; }
+.workspace aside { border-radius:0 10px 10px 0; padding:16px; }
+.inspector-symbol { width:35px; height:35px; margin:16px 0 4px; }
+.workspace aside input:not([type=checkbox]) { background:#151d2d; border-color:#47536a; color:white; }
+.workspace aside .save,.workspace aside .save:hover { background:#b2c7ff; color:#122248; border-color:#b2c7ff; }
+.workspace aside > button { color:#ffd0c9; background:#252537; border-color:#60464e; }
+.workspace form p,.comparison p { color:#b7c5dc; }
+.workspace form label { color:#cbd6e9; }
+.workbench :focus-visible { outline-color:#a8c7ff; }
+@media(max-width:1050px) and (min-width:851px) { .workspace { grid-template-columns:140px minmax(0,1fr) 210px; padding-inline:8px; } }
+@media(max-width:850px) {
+  .workspace { grid-template-columns:1fr; }
+  .library { border-radius:8px 8px 0 0; padding:10px; }
+  .library p,.outline { display:none; }
+  .palette { display:flex; flex-wrap:wrap; margin-top:6px; }
+  .workspace section { border-inline:1px solid var(--line); }
+  .workspace aside { border-radius:0 0 8px 8px; }
+  .canvas { height:48vh; min-height:310px; }
+}
