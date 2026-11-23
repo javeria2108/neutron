@@ -6,6 +6,11 @@ export function describeStep(run: RunResult, event: RunResult['trace'][number]) 
   const caller = name(event.callerId)
   const request = `Checkout #${event.requestId}`
   switch (event.kind) {
+    case 'outage-hit': return `${service} started this call during its outage. This attempt will fail.`
+    case 'fast-fail': return `${caller} rejected the call to ${service} at the circuit breaker.`
+    case 'circuit-open': return `The circuit from ${caller} to ${service} opened.`
+    case 'circuit-half-open': return `${caller} can probe ${service} for recovery.`
+    case 'circuit-close': return `The probe succeeded. The circuit from ${caller} to ${service} closed.`
     case 'arrival': return `${request} arrived at ${service}.`
     case 'attempt': return `${caller} called ${service} for ${request.toLowerCase()}.`
     case 'response': return `${service} replied to ${caller} with outcome: ${event.outcome}.`

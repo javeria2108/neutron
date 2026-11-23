@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import type { RunResult } from '@/domain/simulation/run-simulation'
 
-export default function RunSummary({ run, requestId, chooseRequest }: { run: RunResult; requestId: number; chooseRequest: (id: number) => void }) {
+export default function RunSummary({ run, label, requestId, chooseRequest }: { run: RunResult; label: string; requestId: number; chooseRequest: (id: number) => void }) {
   const [page, setPage] = useState(0)
   const { metrics, scenario } = run
   const labels = new Map(scenario.nodes.map(node => [node.id, node.name]))
   const events = run.trace.filter(event => event.requestId === requestId)
-  return <div id="baseline-results" className="run-summary" aria-label="Baseline run results">
-    <h2>Baseline results</h2>
+  return <div id="baseline-results" className="run-summary" aria-label={label + ' run results'}>
+    <h2>{label} results</h2>
     <p>Engine {run.engineVersion} · seed {scenario.workload.seed} · {scenario.workload.arrivalRatePerSecond} req/s
       {' '}for {scenario.workload.durationMs / 1000} s · no scheduled faults</p>
+    {run.faultTimeline.length > 0 && <ol aria-label="Outage timeline">{run.faultTimeline.map((event, index) =>
+      <li key={index}>{event.timeMs} ms: {labels.get(event.targetId)} outage {event.kind === 'outage-start' ? 'started' : 'ended'}</li>)}</ol>}
     <dl>{Object.entries({
       Requests: metrics.attempted, Successful: metrics.success, Failed: metrics.failed,
       'Timed out': metrics.timeout, Rejected: metrics.rejected, Retries: metrics.retries,

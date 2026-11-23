@@ -8,9 +8,11 @@ import { z } from 'zod'
 import { checkoutScenario } from '@/domain/model/checkout'
 import { connectionError, newDependency, newService, serviceKinds, simulationLimits, type ServiceKind } from '@/domain/model/scenario'
 import InfrastructureSymbol from './infrastructure-symbol'
-import { runSimulation, type RunResult } from '@/domain/simulation/run-simulation'
+import type { RunResult } from '@/domain/simulation/run-simulation'
 import { SimulationError } from '@/domain/simulation/validate-run'
 import { describeStep, indexTrail } from './request-replay'
+import { compareScenario, type RunSeries } from '@/application/compare-scenario'
+import RunComparison from './run-comparison'
 import RunSummary from './run-summary'
 import './editor.css'
 
@@ -50,6 +52,11 @@ function field(label: string, name: string, value: number, step = '1') {
   return <label>{label}<input required type="number" name={name} defaultValue={value} step={step} /></label>
 }
 
+function replaySteps(run: RunResult, requestId: number) {
+  return run.trace.filter(event => event.requestId === requestId &&
+    !['service-start', 'service-complete', 'service-finished'].includes(event.kind))
+}
+
 export default function CheckoutEditor() {
   const [scenario, setScenario] = useState(checkoutScenario)
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
@@ -60,9 +67,7 @@ export default function CheckoutEditor() {
   const [requestId, setRequestId] = useState(1)
   const [step, setStep] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const steps = useMemo(() => result?.trace.filter(event =>
-    event.requestId === requestId && !['service-start', 'service-complete', 'service-finished'].includes(event.kind)
-  ) ?? [], [result, requestId])
+  const steps = useMemo(() => result ? replaySteps(result, requestId) : [], [result, requestId])
   const current = steps[step]
   const onGraph = runDraft === scenario ? current : undefined
   const trail = useMemo(() => indexTrail(steps), [steps])
@@ -82,10 +87,24 @@ export default function CheckoutEditor() {
     setPlaying(false)
   }
   const [runError, setRunError] = useState('')
-  function runBaseline() {
+  const [series, setSeries] = useState<RunSeries>({})
+  const [runLabel, setRunLabel] = useState('Baseline')
+  const incident = useMemo(() => result?.trace.find(event => event.kind === 'outage-hit'), [result])
+  const recovery = useMemo(() => result?.trace.find(event => event.kind === 'circuit-close'), [result])
+  function inspect(event: RunResult['trace'][number]) {
+    if (!result) return
+    chooseRequest(event.requestId)
+    setStep(replaySteps(result, event.requestId).findIndex(item => item.id === event.id))
+  }
+
+  function execute(draft: typeof scenario) {
     try {
-      setResult(runSimulation(scenario))
-      setRunDraft(scenario)
+      const completed = compareScenario(draft, series)
+      setSeries(completed.series)
+      setRunLabel(completed.label)
+      setResult(completed.result)
+      setScenario(draft)
+      setRunDraft(draft)
       setStep(0)
       setRequestId(1)
       setPlaying(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -136,7 +155,7 @@ export default function CheckoutEditor() {
   function remove() {
     if (selected === scenario.workload.rootId) return
     setScenario({
-      ...scenario, nodes: scenario.nodes.filter(node => node.id !== selected),
+      ...scenario, faults: scenario.faults.filter(fault => fault.targetId !== selected), nodes: scenario.nodes.filter(node => node.id !== selected),
       edges: scenario.edges.filter(item => ![item.id, item.source, item.target].includes(selected)),
     })
     setNodes(previous => previous.filter(node => node.id !== selected))
@@ -188,11 +207,18 @@ export default function CheckoutEditor() {
         )}</div>
       </nav>
       <section aria-label="Architecture editor">
-      <div className="toolbar"><h2>Topology</h2><button type="button" onClick={runBaseline}>Run simulation</button><span>{nodes.length} nodes / {scenario.edges.length} dependencies</span></div>
+      <div className="toolbar"><h2>Topology</h2><button type="button" onClick={() => execute(scenario)}>Run simulation</button>
+        {scenario.nodes.some(node => node.id === 'provider') && <button onClick={() => execute({
+          ...scenario, faults: scenario.faults.length ? [] : [{ kind: 'outage', targetId: 'provider', startMs: 15000, endMs: 35000 }],
+        })}>{scenario.faults.length ? 'Clear outage' : 'Inject provider outage'}</button>}<span>{nodes.length} nodes / {scenario.edges.length} dependencies</span></div>
       {runError && <p className="run-error" role="alert">{runError}</p>}
       {result && <div className="replay" aria-label="Checkout replay">
         <div className="replay-heading"><strong>Run complete</strong>
           <span>{result.metrics.success} of {result.metrics.attempted} checkouts succeeded</span>
+          {incident && <button onClick={() => inspect(incident)}>Inspect first affected checkout</button>}
+          {recovery && <button onClick={() => inspect(recovery)}>Inspect recovery probe</button>}
+          {!!result.scenario.faults.length && scenario.edges.some(edge => edge.source === 'orders' && edge.target === 'payments') &&
+            <button onClick={() => select(scenario.edges.find(edge => edge.source === 'orders' && edge.target === 'payments')!.id)}>Configure Orders breaker</button>}
           <a href="#baseline-results">Inspect results</a></div>
         {current && <><div className="replay-story" aria-live={advancing ? 'off' : 'polite'}>
           <span>{current.timeMs} ms</span> {describeStep(result, current)}
@@ -239,12 +265,8 @@ export default function CheckoutEditor() {
       </ReactFlow>
         {connectionWarning && <p className="connection-warning" role="alert">{connectionWarning}</p>}
       </div>
-      {result && <RunSummary key={requestId} run={result} requestId={requestId} chooseRequest={chooseRequest} />}
-      <details className="comparison"><summary>Run comparison</summary>
-        <p>Compare baseline, outage and mitigated runs under the same workload.</p>
-        <table><caption className="sr-only">Run availability</caption><thead><tr><th>Baseline</th><th>Provider outage</th><th>Mitigated</th></tr></thead>
-          <tbody><tr>{['baseline', 'outage', 'mitigated'].map(run => <td key={run}>{run === 'baseline' && result ? 'Completed' : 'Awaiting run'}</td>)}</tr></tbody></table>
-      </details>
+      {result && <RunSummary key={requestId} run={result} label={runLabel} requestId={requestId} chooseRequest={chooseRequest} />}
+      <RunComparison series={series} />
     </section>
     <aside><div className="inspector-label">Inspector</div>{service && <span className={'inspector-symbol ' + serviceClass(service.kind)}><InfrastructureSymbol kind={service.kind} /></span>}<h2>{service?.name ?? 'Dependency'}</h2><form key={selected} onSubmit={save}>
       {service && <><p>{service.kind}</p><label>Name<input required name="name" defaultValue={service.name} maxLength={80} /></label>
