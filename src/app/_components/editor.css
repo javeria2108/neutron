@@ -5,7 +5,7 @@
 .workbench button,.workbench select,.workbench input{font:inherit;color:inherit}
 .workbench button,.workbench select{cursor:pointer}
 .workbench button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600}
-.workbench button:hover:not(:disabled){border-color:#a29abf;background:#f4f2fa}
+.workbench button:hover:not(:disabled){border-color:var(--button-hover-border,#a29abf);background:var(--button-hover-bg,#f4f2fa);color:var(--button-hover-fg,var(--ink))}
 .workbench button:disabled{opacity:.55;cursor:default}
 .workbench :focus-visible{outline:3px solid #9983ef;outline-offset:2px}
 .masthead{display:flex;align-items:center;gap:20px;height:62px;padding-inline:clamp(16px,4vw,64px);border-bottom:1px solid var(--line);background:#fff}
@@ -20,8 +20,7 @@
 .scenario-heading{justify-content:space-between;margin-bottom:20px}
 .workspace-path span{margin:0 5px;color:#9994a6}
 .workbench h1{font-size:clamp(24px,2.65vw,40px);line-height:1.25;letter-spacing:-.05em}
-.workbench .run-button,.workbench .send,.workbench .save{background:var(--violet);color:white;border-color:transparent}
-.workbench .run-button:hover:not(:disabled),.workbench .send:hover:not(:disabled),.workbench .save:hover{background:#51409e}
+.workbench .run-button,.workbench .send,.workbench .save{--button-hover-bg:#51409e;--button-hover-fg:#fff;--button-hover-border:#51409e;background:var(--violet);color:white;border-color:transparent}
 .run-button span{margin-right:5px}
 .ai-edit{margin-bottom:20px}
 .composer{background:#fff;border:1px solid #c9c1df;border-radius:14px;padding:7px 8px 7px 15px;box-shadow:0 3px 12px #30235c08;min-height:60px}

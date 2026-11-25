@@ -1,5 +1,21 @@
 import { expect, test } from '@playwright/test'
 
+test('primary and secondary button labels remain readable on hover', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Architecture prompt').fill('Design a booking system')
+  const inspector = page.getByRole('button', { name: 'Inspector', exact: true })
+  await inspector.hover()
+  await expect(inspector).toHaveCSS('color', 'rgb(36, 34, 54)')
+  await expect(inspector).toHaveCSS('background-color', 'rgb(244, 242, 250)')
+  await inspector.click()
+  for (const selector of ['.run-button', '.send', '.save']) {
+    const button = page.locator(selector)
+    await button.hover()
+    await expect(button).toHaveCSS('color', 'rgb(255, 255, 255)')
+    await expect(button).toHaveCSS('background-color', 'rgb(81, 64, 158)')
+  }
+})
+
 test('an unavailable local model leaves manual editing usable', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, 'LanguageModel', { value: undefined, configurable: true })
