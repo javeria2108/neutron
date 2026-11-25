@@ -1,5 +1,5 @@
-export const serviceKinds = ['Gateway', 'Service', 'Database', 'Cache', 'External API'] as const
-export type ServiceKind = typeof serviceKinds[number]
+import type { ServiceKind } from './component-catalog'
+export { serviceKinds, type ServiceKind } from './component-catalog'
 
 export interface ServiceNode {
   id: string
