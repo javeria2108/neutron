@@ -3,7 +3,7 @@
 ## ADR-001: Pure TypeScript discrete-event engine
 **Decision:** A deterministic event queue in a framework-independent domain module. **Reason:** reproducibility, testability, explainability, portability. **Tradeoff:** not a realistic network emulator.
 
-## ADR-002: Simplified synchronous DAG semantics
+## ADR-002: Engine 1.1 synchronous DAG semantics
 **Decision:** MVP supports required sequential downstream calls in a DAG. **Reason:** unambiguous causal propagation in limited time. **Tradeoff:** no real-world concurrency/fanout/queues; clearly disclose.
 
 ## ADR-003: AI as validated adapter
@@ -12,11 +12,11 @@
 ## ADR-004: Local-first persistence
 **Decision:** Save locally, optional Firestore later. **Reason:** offline usability, privacy, scope control. **Tradeoff:** no cross-device sync in MVP.
 
-## ADR-005: Narrow hybrid AI use case
+## ADR-005: Initial feasibility adapter (historical)
 **Decision:** Local model handles bounded structured edits; cloud handles evidence explanation. **Reason:** local model capability limits. **Tradeoff:** hybrid feature may be less impressive than full generation; make value observable.
 
-## ADR-006: Final Neutron hackathon scope
-Neutron ships a deterministic architecture editor and failure simulator with Firebase hybrid AI. Submission requires verified source labels for Gemini Nano and cloud Gemini, a fresh Nano command offline after model setup, measured latency for both inference paths, and proof that AI cannot mutate completed simulation results. Offline manual editing and simulation are P0. Full natural-language architecture generation is the first stretch feature once the engine and local inference work and the MVP gates are met.
+## ADR-006: Original editor-first direction (superseded)
+The first workbench verified deterministic comparisons and selected-target hybrid edits. ADR-013 supersedes the initial product sequence.
 
 ## ADR-007: Scheduler spike ordering
 Events are dequeued by ascending virtual time, then ascending numeric priority. Equal time and priority use FIFO insertion order via a queue-assigned sequence number. Use a sorted array for the spike. Event-kind priority assignments remain an open decision for the simulation core. Keep the sorted array until profiling shows queue operations matter at target workloads. Then consider an array-backed binary min-heap with O(log n) enqueue and dequeue. Preserve the comparator, public API, and golden ordering test.
@@ -55,4 +55,8 @@ Compare matched snapshots by rerunning reference scenarios when the draft change
 | Too much UI polish too early | High | Vertical slices; baseline demo first |
 | Cloud quota/billing issue | Medium | Quotas, explicit limits, fallback, early deployment test |
 | Misleading production claims | High | Clearly state modeled assumptions and limitations |
-| Deadline slips | Critical | Scope cut order in roadmap; freeze features 48h before submission |
+| Deadline slips | Critical | Track end-to-end acceptance and flag schedule risks as soon as they appear |
+
+## ADR-013: Prompt-first product and NoorQuran architecture
+
+Neutron starts with a prompt that generates an editable, runnable system graph. Users ask topology questions, describe failures and repairs by name, and compare reproducible runs with explanations linked to trace events and metrics. The full conversational workflow is the hackathon deliverable. Simulation coverage grows to include asynchronous messaging and parallel flows; each modeled behavior requires explicit deterministic semantics. Use route-private components, feature entry points for cross-route reuse, shared contracts and isolated adapters. Keep domain execution client-capable for reproducible local experiments.

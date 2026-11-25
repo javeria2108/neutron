@@ -9,27 +9,14 @@ Next.js App Router + TypeScript strict; React; React Flow (`@xyflow/react`); ELK
 ## Dependency rule
 `domain` ← `application` ← `adapters` / `presentation`. Domain must never import React, Next, Firebase, browser storage, or AI SDKs.
 
-## Suggested structure
-```
-src/
-  domain/
-    model/             # graph, config, faults, metrics, branded IDs
-    simulation/        # event types, scheduler, state transitions, PRNG
-    validation/        # semantic graph invariants
-  application/
-    commands/          # run, propose edit, apply edit, compare, import/export
-    ports/             # AI, persistence, clock? (not for virtual time), telemetry
-    services/          # orchestration, canonicalization, evidence summaries
-  adapters/
-    ai/                # Firebase hybrid, cloud, stub, capability detection
-    persistence/       # browser local storage / IndexedDB, optional Firestore
-    workers/           # simulation worker adapter
-  presentation/
-    components/        # graph, inspector, timeline, metrics, AI controls
-    hooks/             # view-model orchestration
-  app/                 # Next.js routes/layout only
-  shared/              # schemas, errors, utilities without domain pollution
-```
+## Route ownership and contracts
+
+Follow NoorQuran's frontend ownership convention. Each Next.js route composes its screen. Place single-route components in its private `_components/` directory. When a second route uses a component, promote it to `src/features/<feature>/` and expose its public entry points through `index.ts`. Keep feature-specific pure transformations beside their callers. Component props stay with the component.
+
+- `src/app/_components/` owns the workbench, inspector, graph rendering and replay views. Split by interaction or reason to change.
+- `src/contracts/` owns types and wire schemas consumed across layers. Group these by capability. Keep SDK initialization and transport in `src/adapters/`.
+- `src/application/` validates and applies edits and coordinates experiments. `src/domain/` owns deterministic model and simulation behavior, including run snapshots.
+- NoorQuran uses workspace packages across several apps and a Nest API. Neutron currently has one Next.js app. These boundaries are directories within it. A future server can consume the same contracts; local inference and simulation need to run on the client.
 
 ## Data flow
 UI event → application command → schema + semantic validation → immutable scenario snapshot → simulation engine → immutable RunResult → metrics selectors → UI. AI proposal → parse JSON → validate command → preview diff → user approval → application command. AI explanation → bounded evidence summary generated from actual RunResult → AI → response with checked evidence references.

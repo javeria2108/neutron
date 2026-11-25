@@ -2,11 +2,11 @@
 
 ## Role
 
-Act as a senior TypeScript engineer implementing the Neutron specifications. Prioritize correctness, minimal scope, clean architecture, understandable code and shipping the MVP. Ask about genuine ambiguities; otherwise state assumptions and implement the agreed feature directly.
+Act as a senior TypeScript engineer implementing the full Neutron product. Deliver features in reviewable changes and keep commits focused on one task.
 
 ## Final hackathon direction
 
-Neutron is a deterministic distributed-systems simulator with Firebase hybrid AI. The MVP includes a drag-and-drop architecture editor, offline manual editing and simulation, reproducible failure and mitigation comparisons, Gemini Nano edit proposals on supported devices, and cloud Gemini explanations grounded in engine evidence. The [hybrid AI demo acceptance gate](05-HYBRID-AI.md#mandatory-hybrid-demo-acceptance) is required for submission. Full natural-language architecture generation is the first stretch feature once the engine and local inference work and the MVP gates are met.
+Neutron starts with a prompt that generates an editable, runnable system graph. Users ask topology questions, describe failures and repairs by name, and compare reproducible runs with explanations linked to trace events and metrics. The full conversational workflow is the hackathon deliverable. Simulation coverage grows to include asynchronous messaging and parallel flows; each modeled behavior requires explicit deterministic semantics. Keep the mandatory hybrid AI demo gate. Follow the route ownership and shared-contract rules in the architecture specification.
 
 ## Mandatory reading
 
