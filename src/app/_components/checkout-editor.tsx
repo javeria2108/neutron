@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   Background,
@@ -22,12 +22,14 @@ import {
   serviceKinds,
   type ServiceKind,
 } from "@/domain/model/scenario";
-import { SettingsInspector } from "./SettingsInspector";
-import { getEditTarget } from "./edit-target";
-import AiEditPanel from "./ai-edit-panel";
 import { renderGraph } from "./render-graph";
-import { serviceClass, nodeLabel } from "./service-node";
-import InfrastructureSymbol from "./infrastructure-symbol";
+import { SettingsInspector } from "./SettingsInspector";
+import { ComponentCatalog } from "./ComponentCatalog";
+import { nodeLabel, serviceClass } from "./service-node";
+import AiEditPanel from "./ai-edit-panel";
+import { getEditTarget } from "./edit-target";
+import { graphLayout } from "./graph-layout";
+import type { readArchitecture } from "@/application/generated-architecture";
 import type { RunResult } from "@/domain/simulation/run-simulation";
 import { SimulationError } from "@/domain/simulation/validate-run";
 import { describeStep, indexTrail } from "./request-replay";
@@ -40,21 +42,17 @@ import RunSummary from "./run-summary";
 import "./editor.css";
 
 const starter = checkoutScenario();
-const positions = [
-  [0, 90],
-  [210, 90],
-  [435, 0],
-  [655, 0],
-  [435, 180],
-];
-const initialNodes: Node[] = starter.nodes.map((service, index) => ({
+function starterNodes(vertical: boolean): Node[] {
+  const positions = graphLayout(starter, vertical);
+  return starter.nodes.map((service, index) => ({
   id: service.id,
-  position: { x: positions[index][0], y: positions[index][1] },
-  sourcePosition: Position.Right,
-  targetPosition: Position.Left,
+  position: positions[index],
+  sourcePosition: vertical ? Position.Bottom : Position.Right,
+  targetPosition: vertical ? Position.Top : Position.Left,
   className: serviceClass(service.kind),
   data: { label: nodeLabel(service.name, service.kind) },
 }));
+}
 
 function replaySteps(run: RunResult, requestId: number) {
   return run.trace.filter(
@@ -66,10 +64,35 @@ function replaySteps(run: RunResult, requestId: number) {
   );
 }
 
+const subscribeToHydration = () => () => {};
 export default function CheckoutEditor() {
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  if (!hydrated) return <main aria-label="Loading architecture studio" />;
+  return <Workbench />;
+}
+
+function Workbench() {
+  const [initialNodes] = useState(() => starterNodes(window.matchMedia("(max-width: 600px)").matches));
   const [scenario, setScenario] = useState(checkoutScenario);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [selected, select] = useState("gateway");
+  const [title, setTitle] = useState("Checkout Under Pressure");
+  const [panel, setPanel] = useState<"catalog" | "settings" | null>(null);
+  const editTarget = getEditTarget(scenario, scenario.nodes.find(n => n.id === selected), scenario.edges.find(e => e.id === selected));
+  function inspectSelection(id: string) { select(id); setPanel("settings"); }
+  function replaceGraph(graph: ReturnType<typeof readArchitecture>) {
+    const vertical = window.matchMedia("(max-width: 600px)").matches;
+    const layout = graphLayout(graph.draft, vertical);
+    setNodes(graph.draft.nodes.map((node, index) => ({
+      id: node.id, position: layout[index], sourcePosition: vertical ? Position.Bottom : Position.Right,
+      targetPosition: vertical ? Position.Top : Position.Left, className: serviceClass(node.kind),
+      data: { label: nodeLabel(node.name, node.kind) },
+    })));
+    setScenario(graph.draft); setTitle(graph.title); select(graph.draft.workload.rootId);
+    setPanel(null); setSeries({}); setResult(null); setRunDraft(null); setPlaying(false);
+    setConnectionWarning(""); setRunError(""); report("");
+    requestAnimationFrame(() => requestAnimationFrame(() => void flow?.fitView({ padding: .18, maxZoom: 1.25 })));
+  }
   const [flow, setFlow] = useState<ReactFlowInstance<Node> | null>(null);
   const [result, setResult] = useState<RunResult | null>(null);
   const [runDraft, setRunDraft] = useState<typeof scenario | null>(null);
@@ -118,6 +141,7 @@ export default function CheckoutEditor() {
 
   function execute(draft: typeof scenario) {
     try {
+      setPanel(null);
       const completed = compareScenario(draft, series);
       setSeries(completed.series);
       setRunLabel(completed.label);
@@ -137,37 +161,6 @@ export default function CheckoutEditor() {
   }
   const [connectionWarning, setConnectionWarning] = useState("");
   const [message, report] = useState("");
-  const service = scenario.nodes.find((node) => node.id === selected);
-  const edge = scenario.edges.find((item) => item.id === selected);
-
-  const editTarget = getEditTarget(scenario, service, edge);
-  function initializeCanvas(instance: ReactFlowInstance<Node>) {
-    setFlow(instance);
-    if (window.matchMedia("(max-width: 480px)").matches) {
-      const mobilePositions = [
-        [0, 0],
-        [0, 120],
-        [0, 245],
-        [0, 375],
-        [195, 245],
-      ];
-      setNodes((previous) =>
-        previous.map((node, index) => ({
-          ...node,
-          position: {
-            x: mobilePositions[index][0],
-            y: mobilePositions[index][1],
-          },
-          sourcePosition: Position.Bottom,
-          targetPosition: Position.Top,
-        })),
-      );
-      requestAnimationFrame(() => {
-        void instance.fitView({ padding: 0.14 });
-      });
-    }
-  }
-
   function connect({ source, target }: Connection) {
     const error = connectionError(
       scenario.nodes,
@@ -200,7 +193,7 @@ export default function CheckoutEditor() {
         data: { label: nodeLabel(kind, kind) },
       },
     ]);
-    select(id);
+    inspectSelection(id);
     report("Connect the new service to the graph.");
   }
 
@@ -215,7 +208,7 @@ export default function CheckoutEditor() {
       ),
     });
     setNodes((previous) => previous.filter((node) => node.id !== selected));
-    select("gateway");
+    select(scenario.workload.rootId);
     report("Selection removed.");
   }
 
@@ -239,101 +232,26 @@ export default function CheckoutEditor() {
           <i className="brand-mark" aria-hidden="true" />
           Neutron
         </div>
-        <span className="product-name">Architecture lab</span>
-        <Link href="/ai-feasibility">AI diagnostics</Link>
+        <span className="product-name">/ &nbsp; Architecture studio</span>
+        <Link href="/ai-feasibility">AI diagnostics ↗</Link>
       </header>
-      <div className="scenario-heading">
-        <div>
-          <h1>Checkout Under Pressure</h1>
+      <div className="studio">
+        <div className="scenario-heading">
+          <div><div className="workspace-path">Workspace <span>/</span> Architecture</div><h1>{title}</h1></div>
+          <button className="run-button" onClick={() => execute(scenario)}><span aria-hidden="true">▷</span> Run simulation</button>
         </div>
-        <dl className="workload">
-          <div>
-            <dt>Seed</dt>
-            <dd>{scenario.workload.seed}</dd>
-          </div>
-          <div>
-            <dt>Traffic</dt>
-            <dd>{scenario.workload.arrivalRatePerSecond} req/s</dd>
-          </div>
-          <div>
-            <dt>Duration</dt>
-            <dd>{scenario.workload.durationMs / 1000} s</dd>
-          </div>
-        </dl>
-      </div>
+        {editTarget && <AiEditPanel key={editTarget.id} scenario={scenario} target={editTarget} onApply={setScenario} onGenerate={replaceGraph} />}
       <div className="workspace">
-        <nav className="library" aria-label="Component library">
-          <h2>Components</h2>
-          <p>Click or drag to add</p>
-          <div className="palette">
-            {serviceKinds
-              .filter((type) => type !== "Gateway")
-              .map((type) => (
-                <button
-                  key={type}
-                  className={serviceClass(type)}
-                  draggable
-                  onDragStart={(event) =>
-                    event.dataTransfer.setData(
-                      "application/x-neutron-component",
-                      type,
-                    )
-                  }
-                  onClick={() => addService(type)}
-                  aria-label={`Add ${type}`}
-                >
-                  <InfrastructureSymbol kind={type} />
-                  {type}
-                </button>
-              ))}
-          </div>
-          <div className="outline">
-            <h2>In this graph</h2>
-            {scenario.nodes.map((node) => (
-              <button
-                key={node.id}
-                aria-pressed={node.id === selected}
-                onClick={() => select(node.id)}
-              >
-                <InfrastructureSymbol kind={node.kind} />
-                {node.name}
-              </button>
-            ))}
-          </div>
-        </nav>
         <section aria-label="Architecture editor">
           <div className="toolbar">
-            <h2>Topology</h2>
-            <button type="button" onClick={() => execute(scenario)}>
-              Run simulation
-            </button>
-            {scenario.nodes.some((node) => node.id === "provider") && (
-              <button
-                onClick={() =>
-                  execute({
-                    ...scenario,
-                    faults: scenario.faults.length
-                      ? []
-                      : [
-                          {
-                            kind: "outage",
-                            targetId: "provider",
-                            startMs: 15000,
-                            endMs: 35000,
-                          },
-                        ],
-                  })
-                }
-              >
-                {scenario.faults.length
-                  ? "Clear outage"
-                  : "Inject provider outage"}
-              </button>
-            )}
-            <span>
-              {nodes.length} nodes / {scenario.edges.length} dependencies
-            </span>
+            <h2><span className="canvas-icon" aria-hidden="true">⌘</span> System canvas</h2>
+            <span className="counts">{nodes.length} nodes · {scenario.edges.length} connections</span>
+            <div className="tools">
+            <button aria-expanded={panel === "catalog"} onClick={() => setPanel(panel === "catalog" ? null : "catalog")}>＋ Components</button>
+            <button aria-expanded={panel === "settings"} onClick={() => setPanel(panel === "settings" ? null : "settings")}>Inspector</button>
+            </div>
           </div>
+
           {runError && (
             <p className="run-error" role="alert">
               {runError}
@@ -364,7 +282,7 @@ export default function CheckoutEditor() {
                   ) && (
                     <button
                       onClick={() =>
-                        select(
+                        inspectSelection(
                           scenario.edges.find(
                             (edge) =>
                               edge.source === "orders" &&
@@ -453,6 +371,7 @@ export default function CheckoutEditor() {
               )}
             </div>
           )}
+          <div className={"drawing" + (panel ? " has-panel" : "")}>
           <div
             className="canvas"
             onDragOver={(event) => event.preventDefault()}
@@ -478,7 +397,7 @@ export default function CheckoutEditor() {
             }}
           >
             <ReactFlow<Node>
-              onInit={initializeCanvas}
+              onInit={instance => setFlow(instance)}
               nodes={graph.nodes}
               edges={graph.edges}
               defaultEdgeOptions={{ type: "smoothstep" }}
@@ -486,11 +405,12 @@ export default function CheckoutEditor() {
               onConnectStart={() => setConnectionWarning("")}
               onConnect={connect}
               deleteKeyCode={null}
-              onNodeClick={(_, node) => select(node.id)}
-              onEdgeClick={(_, item) => select(item.id)}
-              fitView
+              onNodeClick={(_, node) => inspectSelection(node.id)}
+              onEdgeClick={(_, item) => inspectSelection(item.id)}
+              fitViewOptions={{ padding: .18, maxZoom: 1.25 }}
+              onPaneClick={() => setPanel(null)} fitView
             >
-              <Background gap={19} size={1.2} color="#3a435a" />
+              <Background gap={20} size={1} color="#c8c8d5" />
               <Controls showInteractive={false} />
             </ReactFlow>
             {connectionWarning && (
@@ -499,6 +419,40 @@ export default function CheckoutEditor() {
               </p>
             )}
           </div>
+          {panel && <div className="drawer">
+            <div className="drawer-heading"><strong>{panel === "catalog" ? "Components" : "Properties"}</strong>
+              <button aria-label="Close panel" onClick={() => setPanel(null)}>×</button></div>
+            {panel === "catalog" ? <ComponentCatalog onAdd={addService} /> :
+              <SettingsInspector scenario={scenario} selected={selected} message={message}
+                report={report} onApply={setScenario} onRemove={remove} onRename={renameNode} />}
+          </div>}
+          </div>
+          <div className="canvas-footer"><span className="state-dot" />{result ? runLabel + " run" : "Draft"}<span className="workload-meta">{scenario.workload.arrivalRatePerSecond} req/s · {scenario.workload.durationMs / 1000} s · Seed {scenario.workload.seed}</span>
+          <div className="experiment-tools">
+            {scenario.nodes.some((node) => node.id === "provider") && (
+              <button
+                onClick={() =>
+                  execute({
+                    ...scenario,
+                    faults: scenario.faults.length
+                      ? []
+                      : [
+                          {
+                            kind: "outage",
+                            targetId: "provider",
+                            startMs: 15000,
+                            endMs: 35000,
+                          },
+                        ],
+                  })
+                }
+              >
+                {scenario.faults.length
+                  ? "Clear outage"
+                  : "Inject provider outage"}
+              </button>
+            )}
+          </div></div>
           {result && (
             <RunSummary
               key={requestId}
@@ -508,12 +462,9 @@ export default function CheckoutEditor() {
               chooseRequest={chooseRequest}
             />
           )}
-          <RunComparison series={series} />
+          {result && <RunComparison series={series} />}
         </section>
-        <div>
-          <SettingsInspector scenario={scenario} selected={selected} message={message} report={report} onApply={setScenario} onRemove={remove} onRename={renameNode} />
-          {editTarget && <AiEditPanel key={editTarget.id} scenario={scenario} target={editTarget} onApply={setScenario} />}
-        </div>
+      </div>
       </div>
     </main>
   );

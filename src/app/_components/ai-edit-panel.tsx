@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { generateArchitecture } from "@/adapters/ai/generate-architecture";
+import { readArchitecture } from "@/application/generated-architecture";
 import { z } from "zod";
 import { detectLocalModel, requestEdit, type InferencePath } from "@/adapters/ai/firebase-feasibility";
 import { previewEdit, type EditPreview } from "@/application/scenario-edits";
@@ -8,6 +10,7 @@ import type { EditTarget } from "@/contracts/architecture-edit";
 import type { Scenario } from "@/domain/model/scenario";
 
 interface Props {
+  onGenerate: (graph: ReturnType<typeof readArchitecture>) => void;
   scenario: Scenario;
   target: EditTarget;
   onApply: (draft: Scenario) => void;
@@ -15,7 +18,9 @@ interface Props {
 
 const clarification = z.strictObject({ kind: z.literal("clarify") });
 
-export default function AiEditPanel({ scenario, target, onApply }: Props) {
+export default function AiEditPanel({ scenario, target, onApply, onGenerate }: Props) {
+  const [mode, setMode] = useState<"generate" | "edit">("generate");
+  const [generated, setGenerated] = useState<{ original: Scenario; graph: ReturnType<typeof readArchitecture> } | null>(null);
   const [request, setRequest] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -28,10 +33,19 @@ export default function AiEditPanel({ scenario, target, onApply }: Props) {
     const instruction = request.trim();
     if (!instruction || busy) return;
     setBusy(true);
+    setGenerated(null);
     setProposal(null);
     setMeasurement("");
     setStatus(path === "local" ? "Checking the on-device model…" : "Waiting for cloud Gemini…");
     try {
+      if (mode === "generate") {
+        const result = await generateArchitecture(instruction);
+        setMeasurement(`Observed source: ${result.source}. Inference: ${result.elapsedMs} ms.`);
+        const graph = readArchitecture(JSON.parse(result.text), scenario.workload);
+        setGenerated({ original: scenario, graph });
+        setStatus("Review this architecture before replacing the canvas and its runs.");
+        return;
+      }
       if (path === "local") {
         if (await detectLocalModel() === "unavailable") {
           setStatus("Local AI is unavailable on this device. Manual editing is available.");
@@ -55,7 +69,7 @@ export default function AiEditPanel({ scenario, target, onApply }: Props) {
       setStatus("Review the proposed change.");
     } catch (error) {
       if (error instanceof SyntaxError || error instanceof z.ZodError) {
-        setStatus("The model returned an invalid edit. Try one setting and an explicit value.");
+        setStatus("The model returned an invalid proposal. Try a more specific request.");
       } else {
         setStatus(error instanceof Error ? error.message : "Could not generate an edit.");
       }
@@ -66,24 +80,34 @@ export default function AiEditPanel({ scenario, target, onApply }: Props) {
 
   return (
     <section className="ai-edit" aria-label="AI edit">
-      <h3>AI edit</h3>
-      <label>Request for {name}
-        <textarea value={request} maxLength={500} disabled={busy}
-          placeholder={target.type === "service" ? "Set processing latency to 750 ms" : "Set maximum retries to 2"}
-          onChange={event => {
-            setRequest(event.target.value);
-            setProposal(null);
-            setMeasurement("");
-            setStatus("");
-          }} />
-      </label>
-      <div className="ai-actions">
-        <button type="button" disabled={busy || !request.trim()} onClick={() => propose("local")}>Propose locally</button>
-        <button type="button" disabled={busy || !request.trim()} onClick={() => propose("cloud")}>Send to cloud</button>
-      </div>
-      <small>Cloud sends your request and the selected target’s settings to Gemini.</small>
+      <form className="composer" onSubmit={event => {
+        event.preventDefault();
+        void propose(mode === "generate" ? "cloud" : "local");
+      }}>
+        <span className="prompt-symbol" aria-hidden="true">✦</span>
+        <input aria-label="Architecture prompt" value={request} maxLength={2000} disabled={busy}
+          placeholder={mode === "generate" ? "Describe a system to generate its architecture…" : `Describe an edit to ${name}…`}
+          onChange={event => { setRequest(event.target.value); setProposal(null); setGenerated(null); setMeasurement(""); setStatus(""); }} />
+        <select aria-label="Prompt action" value={mode} disabled={busy} onChange={event => {
+          setMode(event.target.value === "generate" ? "generate" : "edit");
+          setProposal(null); setGenerated(null); setStatus(""); setMeasurement("");
+        }}>
+          <option value="generate">Generate graph</option>
+          <option value="edit">Edit selection</option>
+        </select>
+        <button className="send" disabled={busy || !request.trim()} type="submit">{busy ? "Working…" : mode === "generate" ? "Generate ↗" : "Propose locally"}</button>
+        {mode === "edit" && <button type="button" disabled={busy || !request.trim()} onClick={() => propose("cloud")}>Send to cloud</button>}
+      </form>
+      {(request || mode === "edit") && <small>{mode === "generate" ? "Generate sends your description to cloud Gemini." : `Editing ${name}. Cloud sends the request and the selected settings.`}</small>}
+      {generated && generated.original === scenario && <div className="proposal">
+        <strong>{generated.graph.title}</strong><p>{generated.graph.draft.nodes.map(node => node.name).join(" · ")}</p>
+        <p>{generated.graph.draft.edges.map(edge => edge.source + " → " + edge.target).join(" · ")}</p>
+        <p>{generated.graph.assumptions}</p>
+        <button type="button" onClick={() => { onGenerate(generated.graph); setGenerated(null); setStatus("Architecture applied."); }}>Replace canvas</button>
+        <button type="button" onClick={() => { setGenerated(null); setStatus("Proposal discarded."); }}>Discard</button>
+      </div>}
       <div aria-live="polite">
-        {status && <p>{stale ? "The draft changed. Generate a fresh preview." : status}</p>}
+        {status && <p>{stale || (generated && generated.original !== scenario) ? "The draft changed. Generate a fresh preview." : status}</p>}
         {measurement && <p>{measurement}</p>}
       </div>
       {proposal && !stale && <div>
