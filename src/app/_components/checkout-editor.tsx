@@ -25,7 +25,7 @@ import {
   type ServiceKind,
 } from "@/domain/model/scenario";
 import { serviceSettings, edgeSettings, breakerSettings, updateService, updateDependency } from "@/application/scenario-edits";
-import type { EditTarget } from "@/adapters/ai/firebase-feasibility";
+import type { EditTarget } from "@/contracts/architecture-edit";
 import AiEditPanel from "./ai-edit-panel";
 import InfrastructureSymbol from "./infrastructure-symbol";
 import type { RunResult } from "@/domain/simulation/run-simulation";

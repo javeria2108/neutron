@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { z } from "zod";
-import { detectLocalModel, requestEdit, type EditTarget, type InferencePath } from "@/adapters/ai/firebase-feasibility";
+import { detectLocalModel, requestEdit, type InferencePath } from "@/adapters/ai/firebase-feasibility";
 import { previewEdit, type EditPreview } from "@/application/scenario-edits";
+import type { EditTarget } from "@/contracts/architecture-edit";
 import type { Scenario } from "@/domain/model/scenario";
 
 interface Props {
