@@ -145,3 +145,8 @@ body:has(.workbench) { margin: 0; background: #f2f5f3; }
 .replay-visited .node-symbol { border-color:#80d9ca; background:#18383a; }
 .replay-trail .react-flow__edge-path { stroke-dasharray:6 3; }
 .replay-story small { display:block; font-size:.86rem; font-weight:400; color:#bdcbdf; }
+.workspace aside .ai-edit { margin-top: 16px; padding: 12px; border-radius: 8px; }
+.ai-edit h3 { margin: 0 0 10px; }
+.ai-edit textarea { display: block; width: 100%; min-height: 4em; margin: 6px 0; padding: 8px; resize: vertical; font: inherit; color: white; background: #151d2d; border: 1px solid #47536a; border-radius: 6px; }
+.ai-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ai-actions button:disabled { opacity: .55; }
