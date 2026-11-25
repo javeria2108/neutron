@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Background,
@@ -14,7 +14,6 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { z } from "zod";
 import { checkoutScenario } from "@/domain/model/checkout";
 import {
   connectionError,
@@ -23,8 +22,8 @@ import {
   serviceKinds,
   type ServiceKind,
 } from "@/domain/model/scenario";
-import { serviceSettings, edgeSettings, breakerSettings, updateService, updateDependency } from "@/application/scenario-edits";
-import type { EditTarget } from "@/contracts/architecture-edit";
+import { SettingsInspector } from "./SettingsInspector";
+import { getEditTarget } from "./edit-target";
 import AiEditPanel from "./ai-edit-panel";
 import { renderGraph } from "./render-graph";
 import { serviceClass, nodeLabel } from "./service-node";
@@ -56,21 +55,6 @@ const initialNodes: Node[] = starter.nodes.map((service, index) => ({
   className: serviceClass(service.kind),
   data: { label: nodeLabel(service.name, service.kind) },
 }));
-
-function field(label: string, name: string, value: number, step = "1") {
-  return (
-    <label>
-      {label}
-      <input
-        required
-        type="number"
-        name={name}
-        defaultValue={value}
-        step={step}
-      />
-    </label>
-  );
-}
 
 function replaySteps(run: RunResult, requestId: number) {
   return run.trace.filter(
@@ -156,26 +140,7 @@ export default function CheckoutEditor() {
   const service = scenario.nodes.find((node) => node.id === selected);
   const edge = scenario.edges.find((item) => item.id === selected);
 
-  let editTarget: EditTarget | undefined;
-  if (service) {
-    editTarget = {
-      type: "service", id: service.id, name: service.name,
-      processingLatencyMs: service.processingLatencyMs,
-    };
-  } else if (edge) {
-    editTarget = {
-      type: "dependency", id: edge.id,
-      from: scenario.nodes.find(node => node.id === edge.source)?.name ?? edge.source,
-      to: scenario.nodes.find(node => node.id === edge.target)?.name ?? edge.target,
-      timeoutMs: edge.timeoutMs, maxRetries: edge.maxRetries,
-      breaker: {
-        failureThreshold: edge.circuitBreaker?.failureThreshold ?? 3,
-        windowMs: edge.circuitBreaker?.windowMs ?? 5000,
-        openDurationMs: edge.circuitBreaker?.openDurationMs ?? 2000,
-      },
-    };
-  }
-
+  const editTarget = getEditTarget(scenario, service, edge);
   function initializeCanvas(instance: ReactFlowInstance<Node>) {
     setFlow(instance);
     if (window.matchMedia("(max-width: 480px)").matches) {
@@ -254,39 +219,17 @@ export default function CheckoutEditor() {
     report("Selection removed.");
   }
 
-  function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget));
-    try {
-      if (service) {
-        const settings = serviceSettings.parse(values);
-        setScenario(updateService(scenario, { ...service, ...settings }));
-        setNodes((previous) =>
-          previous.map((node) =>
-            node.id === selected
-              ? {
-                  ...node,
-                  data: { label: nodeLabel(settings.name, service.kind) },
-                }
-              : node,
-          ),
-        );
-      } else if (edge) {
-        const settings = edgeSettings.parse(values);
-        const circuitBreaker = values.breaker
-          ? breakerSettings.parse(values)
-          : undefined;
-        setScenario(updateDependency(scenario, { ...edge, ...settings, circuitBreaker }));
-      }
-      report("Settings saved.");
-    } catch (error) {
-      if (!(error instanceof z.ZodError)) throw error;
-      report(
-        error.issues
-          .map((issue) => issue.path.join(".") + " - " + issue.message)
-          .join(". "),
-      );
-    }
+  function renameNode(id: string, name: string, kind: ServiceKind) {
+    setNodes((previous) =>
+      previous.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: { label: nodeLabel(name, kind) },
+            }
+          : node,
+      ),
+    );
   }
 
   return (
@@ -567,103 +510,10 @@ export default function CheckoutEditor() {
           )}
           <RunComparison series={series} />
         </section>
-        <aside>
-          <div className="inspector-label">Inspector</div>
-          {service && (
-            <span className={"inspector-symbol " + serviceClass(service.kind)}>
-              <InfrastructureSymbol kind={service.kind} />
-            </span>
-          )}
-          <h2>{service?.name ?? "Dependency"}</h2>
-          <form key={JSON.stringify(service ?? edge)} onSubmit={save}>
-            {service && (
-              <>
-                <p>{service.kind}</p>
-                <label>
-                  Name
-                  <input
-                    required
-                    name="name"
-                    defaultValue={service.name}
-                    maxLength={80}
-                  />
-                </label>
-                {field(
-                  "Processing latency (ms)",
-                  "processingLatencyMs",
-                  service.processingLatencyMs,
-                )}
-                {field(
-                  "Concurrent requests",
-                  "maxConcurrent",
-                  service.maxConcurrent,
-                )}
-                {field(
-                  "Queue capacity",
-                  "queueCapacity",
-                  service.queueCapacity,
-                )}
-                {field(
-                  "Failure probability (0 to 1)",
-                  "baseFailureRate",
-                  service.baseFailureRate,
-                  "any",
-                )}
-              </>
-            )}
-            {edge && (
-              <>
-                <p>
-                  {scenario.nodes.find((n) => n.id === edge.source)?.name} to{" "}
-                  {scenario.nodes.find((n) => n.id === edge.target)?.name}
-                </p>
-                {field("Timeout (ms)", "timeoutMs", edge.timeoutMs)}
-                {field("Maximum retries", "maxRetries", edge.maxRetries)}
-                {field(
-                  "Retry backoff (ms)",
-                  "retryBackoffMs",
-                  edge.retryBackoffMs,
-                )}
-                <label>
-                  <input
-                    type="checkbox"
-                    name="breaker"
-                    defaultChecked={!!edge.circuitBreaker}
-                  />{" "}
-                  Enable circuit breaker
-                </label>
-                {field(
-                  "Failure threshold",
-                  "failureThreshold",
-                  edge.circuitBreaker?.failureThreshold ?? 3,
-                )}
-                {field(
-                  "Rolling window (ms)",
-                  "windowMs",
-                  edge.circuitBreaker?.windowMs ?? 5000,
-                )}
-                {field(
-                  "Open duration (ms)",
-                  "openDurationMs",
-                  edge.circuitBreaker?.openDurationMs ?? 2000,
-                )}
-                {field(
-                  "Half-open probes",
-                  "halfOpenMaxProbes",
-                  edge.circuitBreaker?.halfOpenMaxProbes ?? 1,
-                )}
-              </>
-            )}
-            <button className="save">Save settings</button>
-          </form>
-          {editTarget && (
-            <AiEditPanel key={editTarget.id} scenario={scenario} target={editTarget} onApply={setScenario} />
-          )}
-          {selected !== scenario.workload.rootId && (
-            <button onClick={remove}>Remove selection</button>
-          )}
-          <p role="status">{message}</p>
-        </aside>
+        <div>
+          <SettingsInspector scenario={scenario} selected={selected} message={message} report={report} onApply={setScenario} onRemove={remove} onRename={renameNode} />
+          {editTarget && <AiEditPanel key={editTarget.id} scenario={scenario} target={editTarget} onApply={setScenario} />}
+        </div>
       </div>
     </main>
   );
