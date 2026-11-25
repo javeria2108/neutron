@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Background,
   Controls,
-  MarkerType,
   ReactFlow,
   useNodesState,
   Position,
@@ -27,6 +26,8 @@ import {
 import { serviceSettings, edgeSettings, breakerSettings, updateService, updateDependency } from "@/application/scenario-edits";
 import type { EditTarget } from "@/contracts/architecture-edit";
 import AiEditPanel from "./ai-edit-panel";
+import { renderGraph } from "./render-graph";
+import { serviceClass, nodeLabel } from "./service-node";
 import InfrastructureSymbol from "./infrastructure-symbol";
 import type { RunResult } from "@/domain/simulation/run-simulation";
 import { SimulationError } from "@/domain/simulation/validate-run";
@@ -47,21 +48,6 @@ const positions = [
   [655, 0],
   [435, 180],
 ];
-function serviceClass(kind: ServiceKind) {
-  return "service-card kind-" + kind.toLowerCase().replaceAll(" ", "-");
-}
-
-function nodeLabel(name: string, kind: ServiceKind) {
-  return (
-    <span className="node-face">
-      <span className="node-symbol">
-        <InfrastructureSymbol kind={kind} />
-      </span>
-      <strong>{name}</strong>
-    </span>
-  );
-}
-
 const initialNodes: Node[] = starter.nodes.map((service, index) => ({
   id: service.id,
   position: { x: positions[index][0], y: positions[index][1] },
@@ -113,13 +99,7 @@ export default function CheckoutEditor() {
   const current = steps[step];
   const onGraph = runDraft === scenario ? current : undefined;
   const trail = useMemo(() => indexTrail(steps), [steps]);
-  const reply =
-    onGraph?.kind === "response" || onGraph?.kind === "late-response";
-  const call = onGraph?.kind === "attempt";
-  const focusNode =
-    reply || onGraph?.kind === "timeout" || onGraph?.kind === "retry"
-      ? onGraph.callerId
-      : onGraph?.nodeId;
+  const graph = renderGraph(nodes, scenario.edges, selected, onGraph, trail, step);
   const advancing = playing && !!onGraph && step < steps.length - 1;
   useEffect(() => {
     if (!advancing) return;
@@ -556,71 +536,8 @@ export default function CheckoutEditor() {
           >
             <ReactFlow<Node>
               onInit={initializeCanvas}
-              nodes={nodes.map((node) => {
-                const visited =
-                  onGraph && (trail.nodes.get(node.id) ?? Infinity) <= step;
-                const state =
-                  node.id === focusNode
-                    ? " replay-node"
-                    : visited
-                      ? " replay-visited"
-                      : "";
-                return {
-                  ...node,
-                  className: node.className + state,
-                  selected: node.id === selected,
-                };
-              })}
-              edges={scenario.edges.map((item) => {
-                const visited =
-                  onGraph &&
-                  (trail.edges.get(
-                    JSON.stringify([item.source, item.target]),
-                  ) ?? Infinity) <= step;
-                const moving =
-                  (call || reply) &&
-                  onGraph?.callerId === item.source &&
-                  onGraph.nodeId === item.target;
-                const returning = moving && reply;
-                const selectedEdge = [
-                  item.id,
-                  item.source,
-                  item.target,
-                ].includes(selected);
-                const color = moving
-                  ? "#ffe796"
-                  : visited
-                    ? "#80d9ca"
-                    : !onGraph && selectedEdge
-                      ? "#9bd7ff"
-                      : "#7082a4";
-                const marker = {
-                  type: MarkerType.ArrowClosed,
-                  color,
-                  orient: "auto-start-reverse",
-                };
-                return {
-                  ...item,
-                  className: moving
-                    ? "replay-hop"
-                    : visited
-                      ? "replay-trail"
-                      : "",
-                  label: moving ? (returning ? "Reply" : "Call") : undefined,
-                  labelStyle: { fill: "#182338", fontWeight: 700 },
-                  labelBgStyle: { fill: "#ffe796" },
-                  style: {
-                    stroke: color,
-                    strokeWidth: moving
-                      ? 4
-                      : visited || selectedEdge
-                        ? 2.6
-                        : 1.8,
-                  },
-                  markerStart: returning ? marker : undefined,
-                  markerEnd: returning ? undefined : marker,
-                };
-              })}
+              nodes={graph.nodes}
+              edges={graph.edges}
               defaultEdgeOptions={{ type: "smoothstep" }}
               onNodesChange={onNodesChange}
               onConnectStart={() => setConnectionWarning("")}
