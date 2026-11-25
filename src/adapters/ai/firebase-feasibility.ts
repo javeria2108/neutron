@@ -42,7 +42,7 @@ const schema = Schema.object({
   },
 });
 
-async function generateStructured(
+export async function generateStructured(
   path: InferencePath,
   prompt: string,
   schema: ReturnType<typeof Schema.object>,
