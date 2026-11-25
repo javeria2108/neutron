@@ -1,5 +1,21 @@
 import { expect, test } from '@playwright/test'
 
+test('an unavailable local model leaves manual editing usable', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'LanguageModel', { value: undefined, configurable: true })
+  })
+  await page.goto('/')
+  const panel = page.getByRole('region', { name: 'AI edit' })
+  await panel.getByRole('textbox').fill('Set processing latency to 750 ms')
+  await panel.getByRole('button', { name: 'Propose locally' }).click()
+  await expect(panel).toContainText('Local AI is unavailable')
+  await expect(panel.getByRole('button', { name: 'Send to cloud' })).toBeEnabled()
+  await expect(page.getByLabel('Processing latency (ms)')).toHaveValue('10')
+  await page.getByLabel('Processing latency (ms)').fill('25')
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await expect(page.getByRole('status')).toContainText('Settings saved')
+})
+
 test('edit the checkout graph and validate service settings', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.react-flow__node')).toHaveCount(5)
