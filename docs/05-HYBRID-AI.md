@@ -7,11 +7,11 @@ Hybrid inference is a user-visible capability, not a checkbox. Use **local** mod
 Before full implementation, build a separate spike in a supported Chrome environment using the **official Firebase AI Logic hybrid web SDK**. Verify current API surface, supported model, structured output support, hardware/Chrome constraints, and actual `inferenceSource`. Do not assume VS Code/Electron/other browsers support local Gemini Nano. Verify model download and offline inference with network disabled *after initial setup*. Official starting point: https://firebase.google.com/docs/ai-logic/hybrid/web/get-started . Treat API examples as version-dependent; follow live official docs.
 
 ## AI capabilities
-**P0 local:** Convert bounded user utterances into one of a small set of typed edit commands: `setNodeLatency`, `setEdgeTimeout`, `setMaxRetries`, `enableCircuitBreaker`, `disableCircuitBreaker`, `addSupportedNode` (if validation permits). Send minimal relevant graph context; do not require full architecture generation locally.
+**On device:** Interpret graph-aware experiment and repair requests using relevant topology and conversation context. Resolve references and validate before applying.
 
 **P0 cloud:** Explain a bounded, deterministic evidence bundle: actual metrics, top N events, relevant node/edge configs, scenario hash. Request citations to event IDs and metrics keys. Check references before displaying. If citations invalid, show raw deterministic summary and mark AI narrative unavailable.
 
-**P1:** Full natural-language graph generation is the first stretch feature once the deterministic engine and verified local inference work and P0 gates are met. Require validated schema, preview, and approval. Multi-edit plans and comparative recommendations follow.
+**Cloud generation and conversation:** Generate complete runnable graphs, answer topology questions and compare actual runs. Validate topology, show assumptions and require approval for changes. Cite verified run evidence when discussing outcomes.
 
 ## Command contract
 ```ts

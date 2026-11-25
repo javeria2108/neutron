@@ -1,7 +1,7 @@
 # Deterministic discrete-event simulation specification
 
 ## Goal and boundary
-Simulate a *simplified synchronous request/response dependency graph*. Not a full network emulator. Document assumptions prominently. MVP graph is a DAG with one root Gateway, synchronous downstream calls, and no queue/message-broker semantics.
+Engine 1.1 implements synchronous request/response on a single-root DAG. The full product also models asynchronous messaging and parallel branches. Specify enqueue, delivery, acknowledgement, redelivery, fan-out and join completion rules and add deterministic fixtures before enabling those semantics in a generated graph.
 
 ## Simulation time and scheduler
 Use integer virtual milliseconds (`timeMs >= 0`). Event queue ordered lexicographically by `(timeMs, priority, sequenceNumber)`; sequenceNumber increments deterministically. No `Date.now()`, `Math.random()`, setTimeout, or network calls in core. Define event priority explicitly; e.g. completion/timeout/fault transition ordering must be stable at equal timestamps. Choose and document tie-breaking before coding.

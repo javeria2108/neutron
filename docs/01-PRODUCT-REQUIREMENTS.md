@@ -12,7 +12,7 @@ Architecture diagrams explain structure but not operational consequences. Develo
 Simulation first; explainable metrics; reproducibility; clear separation of modeled behavior and reality; no AI-generated numeric results; no false claims of production prediction.
 
 ## 4. Core journey
-1. Open a prebuilt **Checkout Under Pressure** template (Gateway → Orders → Payments → External Payment Provider; Orders → Database).
+1. Describe a system and review the generated topology and workload. The checkout graph is one reproducible example.
 2. Review service parameters and edge dependencies; optionally move or edit nodes.
 3. Run 60 seconds of simulated traffic with fixed seed and inspect baseline metrics.
 4. Inject an external payment-provider outage at t=15s for 20s; rerun.
@@ -22,19 +22,19 @@ Simulation first; explainable metrics; reproducibility; clear separation of mode
 8. Compare baseline/fault/mitigated results; inspect which metrics improved and which worsened.
 9. Save/share a local project export (JSON). Optional cloud save after core flow is stable.
 
-## 5. MVP features (P0)
-- Starter scenario; drag-and-drop service graph with five node types: Gateway, Service, Database, Cache, External API. Queue is **out of MVP** unless engine semantics implemented.
+## 5. Product capabilities
+- Prompt-generated and manually editable graphs. Support synchronous services, asynchronous producers/queues/consumers, and parallel branches through versioned engine models.
 - Edge configuration: timeout, retry count, retry backoff, optional circuit breaker.
 - Service configuration: fixed processing latency, max concurrency, queue limit, failure probability (seeded), downstream dependencies.
-- Seeded traffic generator (constant rate), fixed duration; one fault: provider outage; optional latency spike stretch.
+- Seeded traffic and explicit failure schedules selected through graph-aware prompts.
 - Deterministic discrete-event engine with request IDs, event log, aggregate metrics, and run snapshots.
 - Run controls, event timeline, node health/metrics, before/after comparison.
-- Firebase AI Logic hybrid inference: a narrow structured local command workflow and cloud analysis of bounded trace summary; clear source indicators and capability checks.
+- Firebase hybrid inference for graph generation, graph-aware conversation, failure and repair proposals, and explanations grounded in run evidence.
 - Export/import project JSON, schema validation, responsive desktop-first UI, basic keyboard access.
 
-## 6. P1 / stretch (only after P0 complete)
-- First priority is full architecture generation from a natural-language description, once the engine and verified local inference are working. Generated graphs require validation, preview, and approval.
-- Other stretch features include undo/redo; multiple templates; advanced workload shapes; persistence/sync; share links; additional fault types; richer charts; offline PWA shell.
+## 6. Additional capabilities
+- Resolve named components across the graph and ask for clarification when several targets match.
+- Additional capabilities include undo/redo, multiple templates, advanced workload shapes, persistence/sync, share links and richer charts.
 
 ## 7. Explicit non-goals
 - No actual microservice deployment, network load testing, or performance prediction of real systems.
