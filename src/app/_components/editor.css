@@ -32,6 +32,8 @@
 .proposal{background:white;border:1px solid var(--line);border-radius:10px;padding:12px}
 .workspace{background:white;border:1px solid #d8d6e2;border-radius:15px;overflow:hidden;box-shadow:0 4px 22px #30284308}
 .toolbar{min-height:58px;padding:10px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.architecture-views{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 18px;padding:10px 18px;border-bottom:1px solid var(--line)}
+.architecture-views:empty{display:none}
 .toolbar h2{font-size:16px;letter-spacing:-.025em;display:flex;align-items:center;gap:9px}
 .canvas-icon{color:#705aae;font-size:20px}
 .counts,.canvas-footer,.catalog-item p,.catalog>p{font-size:12px;color:var(--muted)}

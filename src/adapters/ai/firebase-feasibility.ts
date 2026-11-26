@@ -47,6 +47,7 @@ export async function generateStructured(
   prompt: string,
   schema: ReturnType<typeof Schema.object>,
   onDownload: (progress: number) => void,
+  cloudModel = "gemini-3.5-flash-lite",
 ) {
   if (!firebaseConfigured)
     throw new Error("Add the Firebase web app configuration to .env.local.");
@@ -83,7 +84,7 @@ export async function generateStructured(
       : {
           mode: InferenceMode.ONLY_IN_CLOUD,
           inCloudParams: {
-            model: "gemini-3.5-flash-lite",
+            model: cloudModel,
             generationConfig: {
               responseMimeType: "application/json",
               responseSchema: schema,

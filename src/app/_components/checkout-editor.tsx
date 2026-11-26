@@ -77,23 +77,38 @@ function Workbench() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [selected, select] = useState("gateway");
   const [faultTarget, setFaultTarget] = useState("provider");
-  const [title, setTitle] = useState("Checkout Under Pressure");
+  const [architecture, setArchitecture] = useState<ReturnType<typeof readArchitecture> | null>(null);
+  const [activeView, setActiveView] = useState(-1);
+  const [savedViews, setSavedViews] = useState<Record<number, { draft: typeof scenario; nodes: typeof nodes }>>({});
   const [panel, setPanel] = useState<"catalog" | "settings" | null>(null);
   const editTarget = getEditTarget(scenario, scenario.nodes.find(n => n.id === selected), scenario.edges.find(e => e.id === selected));
   function inspectSelection(id: string) { select(id); setPanel("settings"); }
-  function replaceGraph(graph: ReturnType<typeof readArchitecture>) {
+  function showView(draft: typeof scenario, savedNodes?: typeof nodes) {
     const vertical = window.matchMedia("(max-width: 600px)").matches;
-    const layout = graphLayout(graph.draft, vertical);
-    setNodes(graph.draft.nodes.map((node, index) => ({
+    const layout = savedNodes ? [] : graphLayout(draft, vertical);
+    setNodes(savedNodes ?? draft.nodes.map((node, index) => ({
       id: node.id, position: layout[index], sourcePosition: vertical ? Position.Bottom : Position.Right,
       targetPosition: vertical ? Position.Top : Position.Left, className: serviceClass(node.kind),
       data: { label: nodeLabel(node.name, node.kind) },
     })));
-    setFaultTarget(graph.draft.nodes.find(node => node.kind === "Worker")?.id ?? graph.draft.workload.rootId);
-    setScenario(graph.draft); setTitle(graph.title); select(graph.draft.workload.rootId);
+    setFaultTarget(draft.nodes.find(node => node.kind === "Worker")?.id ?? draft.workload.rootId);
+    setScenario(draft); select(draft.workload.rootId);
     setPanel(null); setSeries({}); setResult(null); setRunDraft(null); setPlaying(false);
     setConnectionWarning(""); setRunError(""); report("");
     requestAnimationFrame(() => requestAnimationFrame(() => void flow?.fitView({ padding: .18, maxZoom: 1.25 })));
+  }
+  function replaceGraph(graph: ReturnType<typeof readArchitecture>, view: number) {
+    setArchitecture(graph);
+    setActiveView(view);
+    setSavedViews({});
+    showView(graph.workflows[view]?.draft ?? graph.draft);
+  }
+  function switchView(view: number) {
+    if (!architecture || view === activeView) return;
+    const saved = savedViews[view];
+    setSavedViews(previous => ({ ...previous, [activeView]: { draft: scenario, nodes } }));
+    setActiveView(view);
+    showView(saved?.draft ?? architecture.workflows[view]?.draft ?? architecture.draft, saved?.nodes);
   }
   const [flow, setFlow] = useState<ReactFlowInstance<Node> | null>(null);
   const [result, setResult] = useState<RunResult | null>(null);
@@ -239,7 +254,7 @@ function Workbench() {
       </header>
       <div className="studio">
         <div className="scenario-heading">
-          <div><div className="workspace-path">Workspace <span>/</span> Architecture</div><h1>{title}</h1></div>
+          <div><div className="workspace-path">Workspace <span>/</span> Architecture</div><h1>{architecture?.title ?? "Checkout Under Pressure"}</h1></div>
           <button className="run-button" onClick={() => execute(scenario)}><span aria-hidden="true">▷</span> Run simulation</button>
         </div>
         {editTarget && <AiEditPanel key={editTarget.id} scenario={scenario} target={editTarget} onApply={setScenario} onGenerate={replaceGraph} />}
@@ -253,6 +268,15 @@ function Workbench() {
             <button aria-expanded={panel === "settings"} onClick={() => setPanel(panel === "settings" ? null : "settings")}>Inspector</button>
             </div>
           </div>
+          {architecture && <div className="architecture-views">
+            {architecture.workflows.length > 0 && (
+              <label>Canvas view <select value={activeView} onChange={event => switchView(Number(event.target.value))}>
+                <option value={-1}>Overview</option>
+                {architecture.workflows.map((workflow, index) => <option key={index} value={index}>{workflow.name}</option>)}
+              </select></label>
+            )}
+            {architecture.assumptions && <details><summary>Architecture assumptions</summary><p>{architecture.assumptions}</p></details>}
+          </div>}
 
           {runError && (
             <p className="run-error" role="alert">

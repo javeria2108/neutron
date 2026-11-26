@@ -63,4 +63,8 @@ Neutron starts with a prompt that generates an editable, runnable system graph. 
 
 ## ADR-014: Background delivery and generated workflow views
 
+Approval retains the full generated proposal in the workbench. The overview and each workflow have their own editable draft and canvas layout for the current session. Switching views clears the current comparison so its runs use the same graph.
+
 Engine 1.2 acknowledges successful publication after broker processing. A queue assigns one worker edge round-robin per job. A topic schedules one independent delivery per subscriber. Queue capacity bounds pending deliveries; topic admission reserves room for every subscriber atomically. Dispatch waits through a scheduled consumer outage. Once dispatched, normal attempt deadlines, retries and worker capacity apply. Outstanding work drains after arrivals stop. Peak backlog counts pending deliveries across brokers and excludes in-flight work. Repeated producer attempts can publish duplicates.
+
+Generation uses Gemini 4 Hydrogen and the full diagram catalog. The preview offers the overview and named gateway-rooted workflows. Diagram-only components can appear in either view; execution reports which components still require models.

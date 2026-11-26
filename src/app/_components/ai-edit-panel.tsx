@@ -10,7 +10,7 @@ import type { EditTarget } from "@/contracts/architecture-edit";
 import type { Scenario } from "@/domain/model/scenario";
 
 interface Props {
-  onGenerate: (graph: ReturnType<typeof readArchitecture>) => void;
+  onGenerate: (graph: ReturnType<typeof readArchitecture>, view: number) => void;
   scenario: Scenario;
   target: EditTarget;
   onApply: (draft: Scenario) => void;
@@ -20,6 +20,7 @@ const clarification = z.strictObject({ kind: z.literal("clarify") });
 
 export default function AiEditPanel({ scenario, target, onApply, onGenerate }: Props) {
   const [mode, setMode] = useState<"generate" | "edit">("generate");
+  const [workflow, chooseWorkflow] = useState(-1);
   const [generated, setGenerated] = useState<{ original: Scenario; graph: ReturnType<typeof readArchitecture> } | null>(null);
   const [request, setRequest] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,6 +43,7 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
         const result = await generateArchitecture(instruction);
         setMeasurement(`Observed source: ${result.source}. Inference: ${result.elapsedMs} ms.`);
         const graph = readArchitecture(JSON.parse(result.text), scenario.workload);
+        chooseWorkflow(-1);
         setGenerated({ original: scenario, graph });
         setStatus("Review this architecture before replacing the canvas and its runs.");
         return;
@@ -78,6 +80,8 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
     }
   }
 
+  const view = generated?.graph.workflows[workflow];
+  const previewDraft = view?.draft ?? generated?.graph.draft;
   return (
     <section className="ai-edit" aria-label="AI edit">
       <form className="composer" onSubmit={event => {
@@ -100,10 +104,14 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
       </form>
       {(request || mode === "edit") && <small>{mode === "generate" ? "Generate sends your description to cloud Gemini." : `Editing ${name}. Cloud sends the request and the selected settings.`}</small>}
       {generated && generated.original === scenario && <div className="proposal">
-        <strong>{generated.graph.title}</strong><p>{generated.graph.draft.nodes.map(node => node.name).join(" · ")}</p>
-        <p>{generated.graph.draft.edges.map(edge => edge.source + " → " + edge.target).join(" · ")}</p>
+        <strong>{generated.graph.title}</strong>
+        <label>Canvas view <select value={workflow} onChange={event => chooseWorkflow(Number(event.target.value))}>
+          <option value={-1}>Architecture overview</option>
+          {generated.graph.workflows.map((flow, index) => <option key={index} value={index}>{flow.name}</option>)}
+        </select></label><p>{previewDraft?.nodes.map(node => node.name).join(" · ")}</p>
+        <p>{previewDraft?.edges.map(edge => edge.source + " → " + edge.target).join(" · ")}</p>
         <p>{generated.graph.assumptions}</p>
-        <button type="button" onClick={() => { onGenerate(generated.graph); setGenerated(null); setStatus("Architecture applied."); }}>Replace canvas</button>
+        <button type="button" onClick={() => { onGenerate(generated.graph, workflow); setGenerated(null); setStatus("Architecture applied."); }}>Replace canvas</button>
         <button type="button" onClick={() => { setGenerated(null); setStatus("Proposal discarded."); }}>Discard</button>
       </div>}
       <div aria-live="polite">
