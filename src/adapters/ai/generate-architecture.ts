@@ -11,7 +11,7 @@ const schema = Schema.object({ properties: {
   edges: Schema.array({ items: Schema.object({ properties: { source: Schema.string(), target: Schema.string() } }) }),
 } })
 
-export function generateArchitecture(description: string) {
+export function generateArchitecture(description: string, correction?: string) {
   const prompt = [
     'Design a detailed proposed architecture. For a real product label it as a proposed design and explain the modeled workflow. Include meaningful subsystems for the requested use case. Support synchronous calls and background publishing. A Message Queue distributes accepted jobs across workers; a Pub/Sub Topic delivers to every connected worker. Connect brokers only to Worker nodes. Include diagram-only catalog kinds where appropriate and identify their simulation limits in assumptions.',
     'Return named user workflows such as Open feed or Upload media, each a connected subset of the overview edges starting at its Gateway. Include only calls used by that workflow, including its asynchronous deliveries.',
@@ -21,6 +21,7 @@ export function generateArchitecture(description: string) {
     'State important modeling assumptions including any requested behavior that cannot run. Never claim unsupported behavior.',
     JSON.stringify(componentCatalog),
     JSON.stringify(description),
+    ...(correction ? [JSON.stringify({ previousValidationError: correction }), "Return a complete corrected graph for the original request."] : []),
   ].join('\n')
   return generateStructured('cloud', prompt, schema, () => {}, 'gemini-4-hydrogen')
 }

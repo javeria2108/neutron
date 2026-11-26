@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { generateArchitecture } from "@/adapters/ai/generate-architecture";
-import { readArchitecture } from "@/application/generated-architecture";
+import type { readArchitecture } from "@/application/generated-architecture";
+import { requestArchitecture } from "@/application/request-architecture";
 import { z } from "zod";
 import { detectLocalModel, requestEdit, type InferencePath } from "@/adapters/ai/firebase-feasibility";
 import { previewEdit, type EditPreview } from "@/application/scenario-edits";
@@ -40,9 +41,13 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
     setStatus(path === "local" ? "Checking the on-device model…" : "Waiting for cloud Gemini…");
     try {
       if (mode === "generate") {
-        const result = await generateArchitecture(instruction);
-        setMeasurement(`Observed source: ${result.source}. Inference: ${result.elapsedMs} ms.`);
-        const graph = readArchitecture(JSON.parse(result.text), scenario.workload);
+        const graph = await requestArchitecture(
+          correction => generateArchitecture(instruction, correction),
+          scenario.workload,
+          (result, attempt) => setMeasurement(previous =>
+            [previous, `Attempt ${attempt}: ${result.source}, ${result.elapsedMs} ms.`].filter(Boolean).join(" ")),
+          reason => setStatus(`Requesting a corrected graph. ${reason}`),
+        );
         chooseWorkflow(-1);
         setGenerated({ original: scenario, graph });
         setStatus("Review this architecture before replacing the canvas and its runs.");
