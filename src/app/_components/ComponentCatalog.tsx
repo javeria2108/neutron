@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { componentCatalog, type ServiceKind } from '@/domain/model/component-catalog'
 import InfrastructureSymbol from './infrastructure-symbol'
 
@@ -13,11 +13,11 @@ export function ComponentCatalog({ onAdd }: { onAdd: (kind: ServiceKind) => void
     <input type="search" aria-label="Search components" placeholder="Search components…" value={search} onChange={e => setSearch(e.target.value)} />
     <div className="catalog-tabs">
       <button aria-pressed={!planned} onClick={() => setPlanned(false)}>Runnable</button>
-      <button aria-pressed={planned} onClick={() => setPlanned(true)}>Planned</button>
+      <button aria-pressed={planned} onClick={() => setPlanned(true)}>Diagram only</button>
     </div>
     {entries.map(item => <article key={item.kind} className="catalog-item">
       <div>{item.model !== 'planned' && <InfrastructureSymbol kind={item.kind} />}<strong>{item.kind}</strong>
-        {item.model !== 'planned' && item.kind !== 'Gateway' && <button draggable aria-label={'Add ' + item.kind}
+        {item.kind !== 'Gateway' && <button draggable aria-label={'Add ' + item.kind}
           onDragStart={e => e.dataTransfer.setData('application/x-neutron-component', item.kind)}
           onClick={() => onAdd(item.kind)}>＋</button>}</div>
       <p>{item.description}</p>

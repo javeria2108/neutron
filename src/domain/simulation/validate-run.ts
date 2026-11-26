@@ -1,3 +1,4 @@
+import { componentCatalog } from '../model/component-catalog'
 import { connectionError, serviceKinds, simulationLimits, type Dependency, type Scenario } from '../model/scenario'
 
 export class SimulationError extends Error {}
@@ -9,6 +10,18 @@ function integer(value: number, min: number, max: number, label: string) {
 }
 
 export function validateRun(scenario: Scenario) {
+  validateTopology(scenario)
+  const planned = scenario.nodes.filter(node => componentCatalog.some(entry => entry.kind === node.kind && entry.model === 'planned'))
+  if (planned.length) throw new SimulationError('Diagram-only components: ' + planned.map(node => node.name).join(', '))
+  for (const node of scenario.nodes.filter(node => node.kind === 'Message Queue' || node.kind === 'Pub/Sub Topic')) {
+    const consumers = scenario.edges.filter(edge => edge.source === node.id)
+    if (!consumers.length || consumers.some(edge => scenario.nodes.find(item => item.id === edge.target)?.kind !== 'Worker')) {
+      throw new SimulationError('Connect ' + node.name + ' to at least one Worker. All outgoing connections must target workers.')
+    }
+  }
+}
+
+export function validateTopology(scenario: Scenario) {
   const { nodes, edges, workload } = scenario
   integer(nodes.length, 1, 20, 'Component count')
   if (scenario.schemaVersion !== 1) throw new SimulationError('Unsupported scenario version.')

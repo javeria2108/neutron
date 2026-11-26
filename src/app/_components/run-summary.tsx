@@ -15,6 +15,7 @@ export default function RunSummary({ run, label, requestId, chooseRequest }: { r
     <dl>{Object.entries({
       Requests: metrics.attempted, Successful: metrics.success, Failed: metrics.failed,
       'Timed out': metrics.timeout, Rejected: metrics.rejected, Retries: metrics.retries,
+      ...(metrics.jobsCompleted || metrics.jobsFailed ? { 'Jobs completed': metrics.jobsCompleted, 'Jobs failed': metrics.jobsFailed, 'Peak pending deliveries': metrics.peakBacklog } : {}),
       'Queue drops': metrics.queueDrops,
       'Success rate': metrics.attempted ? (100 * metrics.success / metrics.attempted).toFixed(1) + '%' : 'n/a',
     }).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>

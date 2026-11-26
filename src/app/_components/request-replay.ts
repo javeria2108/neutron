@@ -11,6 +11,8 @@ export function describeStep(run: RunResult, event: RunResult['trace'][number]) 
     case 'circuit-open': return `The circuit from ${caller} to ${service} opened.`
     case 'circuit-half-open': return `${caller} can probe ${service} for recovery.`
     case 'circuit-close': return `The probe succeeded. The circuit from ${caller} to ${service} closed.`
+    case 'job-accepted': return service + ' accepted a background delivery.'
+    case 'job-finished': return service + ' background delivery finished: ' + event.outcome
     case 'arrival': return `${request} arrived at ${service}.`
     case 'attempt': return `${caller} called ${service} for ${request.toLowerCase()}.`
     case 'response': return `${service} replied to ${caller} with outcome: ${event.outcome}.`

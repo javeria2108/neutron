@@ -5,7 +5,7 @@ import { SimulationError, validateRun } from './validate-run'
 
 type Outcome = 'success' | 'failed' | 'timeout' | 'rejected'
 type Kind = BreakerTransition | 'outage-hit' | 'fast-fail' | 'arrival' | 'service-start' | 'service-complete' | 'service-finished' | 'queued' | 'queue-drop'
-  | 'attempt' | 'timeout' | 'response' | 'retry' | 'late-response' | 'root-finished'
+  | 'attempt' | 'timeout' | 'response' | 'retry' | 'late-response' | 'root-finished' | 'job-accepted' | 'job-finished'
 interface TraceEvent {
   callerId?: string
   id: number
@@ -54,7 +54,9 @@ export function runSimulation(draft: Scenario) {
   const faultTimeline: { timeMs: number; targetId: string; kind: 'outage-start' | 'outage-end' }[] = []
   const trace: TraceEvent[] = []
   const latencies: number[] = []
-  const metrics = { attempted: 0, success: 0, failed: 0, timeout: 0, rejected: 0, retries: 0, queueDrops: 0, fastFailures: 0, circuitOpens: 0 }
+  const metrics = { attempted: 0, success: 0, failed: 0, timeout: 0, rejected: 0, retries: 0, queueDrops: 0, fastFailures: 0, circuitOpens: 0, jobsCompleted: 0, jobsFailed: 0, peakBacklog: 0 }
+  let backlog = 0
+  const brokers = new Map<string, { pending: number; nextConsumer: number }>()
   let now = 0
   let scheduled = 0
 
@@ -82,6 +84,42 @@ export function runSimulation(draft: Scenario) {
     call.reply('rejected')
   }
 
+  function publish(call: Call, consumers: Dependency[]): Outcome {
+    const broker = brokers.get(call.node.id) ?? { pending: 0, nextConsumer: 0 }
+    brokers.set(call.node.id, broker)
+    const deliveries = call.node.kind === 'Pub/Sub Topic'
+      ? consumers : [consumers[broker.nextConsumer % consumers.length]]
+    if (broker.pending + deliveries.length > call.node.queueCapacity) {
+      metrics.queueDrops++
+      record(call, 'queue-drop', 'rejected')
+      return 'rejected'
+    }
+    broker.nextConsumer++
+    for (const edge of deliveries) {
+      broker.pending++
+      backlog++
+      metrics.peakBacklog = Math.max(metrics.peakBacklog, backlog)
+      record(call, 'job-accepted')
+      function dispatch() {
+        const unavailable = scenario.faults.find(fault => fault.targetId === edge.target &&
+          fault.startMs <= now && now < fault.endMs)
+        if (unavailable) {
+          schedule(unavailable.endMs - now, 2, dispatch)
+          return
+        }
+        broker.pending--
+        backlog--
+        attempt(call, edge, 0, outcome => {
+          if (outcome === 'success') metrics.jobsCompleted++
+          else metrics.jobsFailed++
+          record(call, 'job-finished', outcome)
+        })
+      }
+      schedule(0, 2, dispatch)
+    }
+    return 'success'
+  }
+
   function start(call: Call) {
     const service = services.get(call.node.id)!
     service.active++
@@ -89,7 +127,9 @@ export function runSimulation(draft: Scenario) {
     let nextEdge = 0
 
     function advance(outcome: Outcome) {
-      const dependency = service.dependencies[nextEdge++]
+      const broker = call.node.kind === 'Message Queue' || call.node.kind === 'Pub/Sub Topic'
+      if (broker && outcome === 'success') outcome = publish(call, service.dependencies)
+      const dependency = broker ? undefined : service.dependencies[nextEdge++]
       if (outcome === 'success' && dependency) {
         attempt(call, dependency, 0, advance)
         return
@@ -181,7 +221,7 @@ export function runSimulation(draft: Scenario) {
   }
   latencies.sort((a, b) => a - b)
   const percentile = (fraction: number) => latencies[Math.ceil(fraction * latencies.length) - 1] ?? null
-  return freezeTree({ engineVersion: '1.1', scenario, faultTimeline, trace,
+  return freezeTree({ engineVersion: '1.2', scenario, faultTimeline, trace,
     metrics: { ...metrics, p50Ms: percentile(0.5), p95Ms: percentile(0.95), p99Ms: percentile(0.99) } })
 }
 

@@ -60,3 +60,7 @@ Compare matched snapshots by rerunning reference scenarios when the draft change
 ## ADR-013: Prompt-first product and NoorQuran architecture
 
 Neutron starts with a prompt that generates an editable, runnable system graph. Users ask topology questions, describe failures and repairs by name, and compare reproducible runs with explanations linked to trace events and metrics. The full conversational workflow is the hackathon deliverable. Simulation coverage grows to include asynchronous messaging and parallel flows; each modeled behavior requires explicit deterministic semantics. Use route-private components, feature entry points for cross-route reuse, shared contracts and isolated adapters. Keep domain execution client-capable for reproducible local experiments.
+
+## ADR-014: Background delivery and generated workflow views
+
+Engine 1.2 acknowledges successful publication after broker processing. A queue assigns one worker edge round-robin per job. A topic schedules one independent delivery per subscriber. Queue capacity bounds pending deliveries; topic admission reserves room for every subscriber atomically. Dispatch waits through a scheduled consumer outage. Once dispatched, normal attempt deadlines, retries and worker capacity apply. Outstanding work drains after arrivals stop. Peak backlog counts pending deliveries across brokers and excludes in-flight work. Repeated producer attempts can publish duplicates.

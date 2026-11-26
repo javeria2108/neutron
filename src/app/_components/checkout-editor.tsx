@@ -76,6 +76,7 @@ function Workbench() {
   const [scenario, setScenario] = useState(checkoutScenario);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [selected, select] = useState("gateway");
+  const [faultTarget, setFaultTarget] = useState("provider");
   const [title, setTitle] = useState("Checkout Under Pressure");
   const [panel, setPanel] = useState<"catalog" | "settings" | null>(null);
   const editTarget = getEditTarget(scenario, scenario.nodes.find(n => n.id === selected), scenario.edges.find(e => e.id === selected));
@@ -88,6 +89,7 @@ function Workbench() {
       targetPosition: vertical ? Position.Top : Position.Left, className: serviceClass(node.kind),
       data: { label: nodeLabel(node.name, node.kind) },
     })));
+    setFaultTarget(graph.draft.nodes.find(node => node.kind === "Worker")?.id ?? graph.draft.workload.rootId);
     setScenario(graph.draft); setTitle(graph.title); select(graph.draft.workload.rootId);
     setPanel(null); setSeries({}); setResult(null); setRunDraft(null); setPlaying(false);
     setConnectionWarning(""); setRunError(""); report("");
@@ -429,7 +431,10 @@ function Workbench() {
           </div>
           <div className="canvas-footer"><span className="state-dot" />{result ? runLabel + " run" : "Draft"}<span className="workload-meta">{scenario.workload.arrivalRatePerSecond} req/s · {scenario.workload.durationMs / 1000} s · Seed {scenario.workload.seed}</span>
           <div className="experiment-tools">
-            {scenario.nodes.some((node) => node.id === "provider") && (
+            <select aria-label="Outage target" value={scenario.nodes.some(node => node.id === faultTarget) ? faultTarget : scenario.workload.rootId} onChange={event => setFaultTarget(event.target.value)}>
+              {scenario.nodes.map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
+            </select>
+            {(
               <button
                 onClick={() =>
                   execute({
@@ -439,7 +444,7 @@ function Workbench() {
                       : [
                           {
                             kind: "outage",
-                            targetId: "provider",
+                            targetId: scenario.nodes.some(node => node.id === faultTarget) ? faultTarget : scenario.workload.rootId,
                             startMs: 15000,
                             endMs: 35000,
                           },
@@ -449,7 +454,7 @@ function Workbench() {
               >
                 {scenario.faults.length
                   ? "Clear outage"
-                  : "Inject provider outage"}
+                  : faultTarget === "provider" ? "Inject provider outage" : "Inject outage"}
               </button>
             )}
           </div></div>

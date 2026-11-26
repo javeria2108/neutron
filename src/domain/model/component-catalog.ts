@@ -1,6 +1,6 @@
 // A model identifier describes the execution semantics available to a generated graph.
 // Recognizing an architecture term alone does not make it executable.
-function entry<const K extends string, const M extends 'request-response' | 'planned'>(
+function entry<const K extends string, const M extends 'request-response' | 'background' | 'planned'>(
   kind: K, model: M, description: string, aliases: readonly string[],
 ) {
   return { kind, model, description, aliases }
@@ -12,9 +12,9 @@ export const componentCatalog = [
   entry('Database', 'request-response', 'Models storage call latency, capacity and failure. Reads and writes share one behavior.', ['PostgreSQL', 'SQL database']),
   entry('Cache', 'request-response', 'Models the cost of a cache call. Hit, miss and expiry behavior still needs a model.', ['Redis', 'Memcached']),
   entry('External API', 'request-response', 'Models latency, saturation and failure at a remote provider.', ['third-party API', 'payment provider']),
-  entry('Message Queue', 'planned', 'Buffers published jobs until a consumer acknowledges them. Unacknowledged work can be redelivered.', ['SQS', 'job queue']),
-  entry('Worker', 'planned', 'Consumes queued jobs independently of the original request.', ['background worker', 'consumer']),
-  entry('Pub/Sub Topic', 'planned', 'Delivers a publication to independent subscriptions.', ['SNS', 'event topic']),
+  entry('Message Queue', 'background', 'Buffers published jobs until a consumer acknowledges them. Unacknowledged work can be redelivered.', ['SQS', 'job queue']),
+  entry('Worker', 'background', 'Consumes queued jobs independently of the original request.', ['background worker', 'consumer']),
+  entry('Pub/Sub Topic', 'background', 'Delivers a publication to independent subscriptions.', ['SNS', 'event topic']),
   entry('Event Stream', 'planned', 'Retains ordered records per partition. Consumer groups track independent offsets.', ['Kafka', 'Kinesis']),
   entry('Dead Letter Queue', 'planned', 'Retains messages after the delivery attempt limit is exhausted.', ['DLQ']),
   entry('Load Balancer', 'planned', 'Routes a request to one eligible target using a balancing policy.', ['ALB', 'reverse proxy']),
@@ -30,6 +30,5 @@ export const componentCatalog = [
   entry('Regional Router', 'planned', 'Selects an available region according to routing and failover policy.', ['global traffic manager']),
 ] as const
 
-const runnableEntries = componentCatalog.filter(component => component.model === 'request-response')
-export const serviceKinds = runnableEntries.map(component => component.kind)
+export const serviceKinds = componentCatalog.map(component => component.kind)
 export type ServiceKind = typeof serviceKinds[number]
