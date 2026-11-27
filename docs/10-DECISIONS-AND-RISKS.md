@@ -72,3 +72,7 @@ Generation uses Gemini 4 Hydrogen and the full diagram catalog. The preview offe
 ## ADR-015: Resolve named edit targets before inference
 
 The application resolves service names, IDs, and dependency endpoints against the active canvas draft. Other workflows remain separate drafts. The model receives settings for one resolved target and its output must pass the existing command validator. Plain named breaker toggles use the same preview and approval flow with deterministic defaults.
+
+## ADR-016: Matched outage and repair experiments
+
+Named outage prompts default to simulation time zero and can specify a start time. Repair removes the named service's scheduled outages. The comparison changes only that service's outage schedule, preserving the workload, seed, graph settings, and other outages. Breaker mitigation continues to use the original comparison flow.

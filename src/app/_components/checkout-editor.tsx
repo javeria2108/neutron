@@ -34,9 +34,11 @@ import type { RunResult } from "@/domain/simulation/run-simulation";
 import { SimulationError } from "@/domain/simulation/validate-run";
 import { describeStep, indexTrail } from "./request-replay";
 import {
+  compareOutage,
   compareScenario,
   type RunSeries,
 } from "@/application/compare-scenario";
+import type { OutageExperiment } from "@/application/outage-experiment";
 import RunComparison from "./run-comparison";
 import RunSummary from "./run-summary";
 import "./editor.css";
@@ -156,10 +158,10 @@ function Workbench() {
     );
   }
 
-  function execute(draft: typeof scenario) {
+  function execute(draft: typeof scenario, experiment?: OutageExperiment) {
     try {
       setPanel(null);
-      const completed = compareScenario(draft, series);
+      const completed = experiment ? compareOutage(experiment, series) : compareScenario(draft, series);
       setSeries(completed.series);
       setRunLabel(completed.label);
       setResult(completed.result);
@@ -257,7 +259,8 @@ function Workbench() {
           <div><div className="workspace-path">Workspace <span>/</span> Architecture</div><h1>{architecture?.title ?? "Checkout Under Pressure"}</h1></div>
           <button className="run-button" onClick={() => execute(scenario)}><span aria-hidden="true">▷</span> Run simulation</button>
         </div>
-        <AiEditPanel scenario={scenario} target={editTarget} onApply={setScenario} onGenerate={replaceGraph} />
+        <AiEditPanel scenario={scenario} target={editTarget} onApply={setScenario} onGenerate={replaceGraph}
+          onExperiment={experiment => execute(experiment.kind === "repair" ? experiment.baseline : experiment.faulted, experiment)} />
       <div className="workspace">
         <section aria-label="Architecture editor">
           <div className="toolbar">
@@ -289,7 +292,7 @@ function Workbench() {
                 <strong>Run complete</strong>
                 <span>
                   {result.metrics.success} of {result.metrics.attempted}{" "}
-                  checkouts succeeded
+                  {architecture ? "requests succeeded" : "checkouts succeeded"}
                 </span>
                 {incident && (
                   <button onClick={() => inspect(incident)}>

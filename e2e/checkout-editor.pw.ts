@@ -1,5 +1,29 @@
 import { expect, test } from '@playwright/test'
 
+test('preview a named outage and compare the repaired run after approval', async ({ page }) => {
+  await page.goto('/')
+  const prompt = page.getByLabel('Architecture prompt')
+  const preview = page.getByRole('button', { name: 'Preview experiment' })
+  const approve = page.getByRole('button', { name: 'Run experiment' })
+  await prompt.fill('Take Orders down for 10 seconds')
+  await preview.click()
+  await expect(page.getByText('Schedule outage [0, 10000) ms.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Faulted results' })).toHaveCount(0)
+  await approve.click()
+  await expect(page.getByRole('heading', { name: 'Faulted results' })).toBeVisible()
+  await prompt.fill('Repair Orders')
+  await preview.click()
+  await expect(page.getByText('Remove scheduled outage [0, 10000) ms.')).toBeVisible()
+  await approve.click()
+  await expect(page.getByRole('heading', { name: 'Repaired results' })).toBeVisible()
+  const comparison = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Repaired', exact: true }) })
+  const success = comparison.getByRole('row', { name: /Success rate/ }).getByRole('cell')
+  await expect(success.nth(0)).toHaveText('100%')
+  await expect(success.nth(1)).not.toHaveText('100%')
+  await expect(success.nth(2)).toHaveText('100%')
+  await expect(comparison.getByRole('row', { name: /Peak pending deliveries/ })).toBeVisible()
+})
+
 test('preview a named breaker edit and preserve the completed run on approval', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Run simulation' }).click()

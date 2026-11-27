@@ -9,7 +9,7 @@ export default function RunSummary({ run, label, requestId, chooseRequest }: { r
   return <div id="baseline-results" className="run-summary" aria-label={label + ' run results'}>
     <h2>{label} results</h2>
     <p>Engine {run.engineVersion} · seed {scenario.workload.seed} · {scenario.workload.arrivalRatePerSecond} req/s
-      {' '}for {scenario.workload.durationMs / 1000} s · no scheduled faults</p>
+      {' '}for {scenario.workload.durationMs / 1000} s · {scenario.faults.length ? 'scheduled faults' : 'no scheduled faults'}</p>
     {run.faultTimeline.length > 0 && <ol aria-label="Outage timeline">{run.faultTimeline.map((event, index) =>
       <li key={index}>{event.timeMs} ms: {labels.get(event.targetId)} outage {event.kind === 'outage-start' ? 'started' : 'ended'}</li>)}</ol>}
     <dl>{Object.entries({

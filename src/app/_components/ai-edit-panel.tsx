@@ -5,6 +5,7 @@ import { generateArchitecture } from "@/adapters/ai/generate-architecture";
 import type { readArchitecture } from "@/application/generated-architecture";
 import { namedBreakerAction, resolveEditTarget } from "@/application/edit-target";
 import { requestArchitecture } from "@/application/request-architecture";
+import { isOutagePrompt, previewOutage, type OutageExperiment } from "@/application/outage-experiment";
 import { z } from "zod";
 import { detectLocalModel, requestEdit, type InferencePath } from "@/adapters/ai/firebase-feasibility";
 import { previewEdit, type EditPreview } from "@/application/scenario-edits";
@@ -16,11 +17,12 @@ interface Props {
   scenario: Scenario;
   target?: EditTarget;
   onApply: (draft: Scenario) => void;
+  onExperiment: (experiment: OutageExperiment) => void;
 }
 
 const clarification = z.strictObject({ kind: z.literal("clarify") });
 
-export default function AiEditPanel({ scenario, target, onApply, onGenerate }: Props) {
+export default function AiEditPanel({ scenario, target, onApply, onGenerate, onExperiment }: Props) {
   const [mode, setMode] = useState<"generate" | "edit">("generate");
   const [workflow, chooseWorkflow] = useState(-1);
   const [generated, setGenerated] = useState<{ original: Scenario; graph: ReturnType<typeof readArchitecture> } | null>(null);
@@ -29,9 +31,12 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
   const [status, setStatus] = useState("");
   const [measurement, setMeasurement] = useState("");
   const [proposal, setProposal] = useState<{ original: Scenario; preview: EditPreview; name: string } | null>(null);
+  const [experiment, setExperiment] = useState<{ original: Scenario; preview: ReturnType<typeof previewOutage> } | null>(null);
   const breakerAction = namedBreakerAction(request);
-  const generating = mode === "generate" && !breakerAction;
-  const stale = proposal !== null && proposal.original !== scenario;
+  const experimentPrompt = isOutagePrompt(request);
+  const localPreview = breakerAction || experimentPrompt;
+  const generating = mode === "generate" && !localPreview;
+  const stale = (proposal && proposal.original !== scenario) || (experiment && experiment.original !== scenario);
 
   async function propose(path: InferencePath) {
     const instruction = request.trim();
@@ -39,9 +44,14 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
     setBusy(true);
     setGenerated(null);
     setProposal(null);
+    setExperiment(null);
     setMeasurement("");
     setStatus("");
     try {
+      if (experimentPrompt) {
+        setExperiment({ original: scenario, preview: previewOutage(scenario, instruction) });
+        return;
+      }
       if (generating) {
         setStatus("Waiting for cloud Gemini…");
         const graph = await requestArchitecture(
@@ -108,19 +118,19 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
       }}>
         <span className="prompt-symbol" aria-hidden="true">✦</span>
         <input aria-label="Architecture prompt" value={request} maxLength={2000} disabled={busy}
-          placeholder={mode === "generate" ? "Describe a system or ask to change a circuit breaker…" : "Name a service or dependency and describe the edit…"}
-          onChange={event => { setRequest(event.target.value); setProposal(null); setGenerated(null); setMeasurement(""); setStatus(""); }} />
+          placeholder={mode === "generate" ? "Describe a system, edit, or outage…" : "Name a service or dependency and describe the edit…"}
+          onChange={event => { setRequest(event.target.value); setProposal(null); setGenerated(null); setExperiment(null); setMeasurement(""); setStatus(""); }} />
         <select aria-label="Prompt action" value={mode} disabled={busy} onChange={event => {
           setMode(event.target.value === "generate" ? "generate" : "edit");
-          setProposal(null); setGenerated(null); setStatus(""); setMeasurement("");
+          setProposal(null); setGenerated(null); setExperiment(null); setStatus(""); setMeasurement("");
         }}>
           <option value="generate">Generate graph</option>
           <option value="edit">Edit architecture</option>
         </select>
-        <button className="send" disabled={busy || !request.trim()} type="submit">{busy ? "Working…" : generating ? "Generate ↗" : breakerAction ? "Preview edit" : "Propose locally"}</button>
-        {mode === "edit" && !breakerAction && <button type="button" disabled={busy || !request.trim()} onClick={() => propose("cloud")}>Send to cloud</button>}
+        <button className="send" disabled={busy || !request.trim()} type="submit">{busy ? "Working…" : generating ? "Generate ↗" : experimentPrompt ? "Preview experiment" : breakerAction ? "Preview edit" : "Propose locally"}</button>
+        {mode === "edit" && !localPreview && <button type="button" disabled={busy || !request.trim()} onClick={() => propose("cloud")}>Send to cloud</button>}
       </form>
-      {(request || mode === "edit") && !breakerAction && <small>{generating ? "Generate sends your description to cloud Gemini." : "Cloud sends the request and settings for the resolved service or dependency."}</small>}
+      {(request || mode === "edit") && !localPreview && <small>{generating ? "Generate sends your description to cloud Gemini." : "Cloud sends the request and settings for the resolved service or dependency."}</small>}
       {generated && generated.original === scenario && <div className="proposal">
         <strong>{generated.graph.title}</strong>
         <label>Canvas view <select value={workflow} onChange={event => chooseWorkflow(Number(event.target.value))}>
@@ -136,6 +146,15 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
         {stale || (generated && generated.original !== scenario) ? <p>The draft changed. Generate a fresh preview.</p> : status && <p>{status}</p>}
         {measurement && <p>{measurement}</p>}
       </div>
+      {experiment && !stale && <div className="proposal">
+        <strong>{experiment.preview.name} · {experiment.preview.experiment.kind === "repair" ? "Repair" : "Outage"}</strong>
+        <p>{experiment.preview.experiment.kind === "repair" ? "Remove scheduled outage" : "Schedule outage"} {experiment.preview.schedule}.</p>
+        <button type="button" onClick={() => {
+          onExperiment(experiment.preview.experiment);
+          setExperiment(null);
+        }}>Run experiment</button>
+        <button type="button" onClick={() => setExperiment(null)}>Discard</button>
+      </div>}
       {proposal && !stale && <div>
         <strong>{proposal.name} · {proposal.preview.field}</strong>
         <p>{proposal.preview.before} → {proposal.preview.after}</p>
