@@ -76,3 +76,7 @@ The application resolves service names, IDs, and dependency endpoints against th
 ## ADR-016: Matched outage and repair experiments
 
 Named outage prompts default to simulation time zero and can specify a start time. Repair removes the named service's scheduled outages. The comparison changes only that service's outage schedule, preserving the workload, seed, graph settings, and other outages. Breaker mitigation continues to use the original comparison flow.
+
+## ADR-017: Run-scoped evidence citations
+
+Cloud explanations receive measured metrics, scenario hashes, relevant settings, and a deterministic sample of trace events from the completed runs. Event IDs are scoped to their run label. Each claim needs at least one citation and every citation must resolve inside the sent bundle. The UI displays the original metric values and event details next to the advisory text and retains the deterministic comparison and trace if the response fails validation.

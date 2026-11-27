@@ -40,6 +40,7 @@ import {
 } from "@/application/compare-scenario";
 import type { OutageExperiment } from "@/application/outage-experiment";
 import RunComparison from "./run-comparison";
+import RunExplanation from "./run-explanation";
 import RunSummary from "./run-summary";
 import "./editor.css";
 
@@ -494,7 +495,7 @@ function Workbench() {
               chooseRequest={chooseRequest}
             />
           )}
-          {result && <RunComparison series={series} />}
+          {result && <><RunComparison series={series} /><RunExplanation series={series} /></>}
         </section>
       </div>
       </div>

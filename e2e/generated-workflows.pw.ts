@@ -1,4 +1,24 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+async function stubCloud(page: Page, respond: () => unknown) {
+  await page.addInitScript(() => {
+    Object.assign(window, {
+      grecaptcha: {
+        enterprise: {
+          ready: (callback: () => void) => callback(),
+          render: () => 0,
+          execute: async () => 'test-recaptcha-token',
+        },
+      },
+    })
+  })
+  await page.route(url => url.pathname.endsWith(':exchangeRecaptchaEnterpriseToken'), route => route.fulfill({
+    json: { token: 'test-app-check-token', ttl: '3600s' },
+  }))
+  await page.route(url => url.pathname.endsWith(':generateContent'), route => route.fulfill({
+    json: { candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(respond()) }] }, finishReason: 'STOP' }] },
+  }))
+}
 
 test('approval retains the overview and every named workflow', async ({ page }) => {
   const feed = { source: 'gateway', target: 'feed' }
@@ -17,23 +37,7 @@ test('approval retains the overview and every named workflow', async ({ page }) 
       { name: 'Upload media', edges: [upload] },
     ],
   }
-  await page.addInitScript(() => {
-    Object.assign(window, {
-      grecaptcha: {
-        enterprise: {
-          ready: (callback: () => void) => callback(),
-          render: () => 0,
-          execute: async () => 'test-recaptcha-token',
-        },
-      },
-    })
-  })
-  await page.route(url => url.pathname.endsWith(':exchangeRecaptchaEnterpriseToken'), route => route.fulfill({
-    json: { token: 'test-app-check-token', ttl: '3600s' },
-  }))
-  await page.route(url => url.pathname.endsWith(':generateContent'), route => route.fulfill({
-    json: { candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(graph) }] }, finishReason: 'STOP' }] },
-  }))
+  await stubCloud(page, () => graph)
 
   await page.goto('/')
   await page.getByRole('textbox', { name: 'Architecture prompt' }).fill('Design a media platform')
@@ -58,4 +62,25 @@ test('approval retains the overview and every named workflow', async ({ page }) 
   await views.selectOption({ label: 'Upload media' })
   await expect(node('upload')).toBeVisible()
   await expect(page.getByRole('heading', { name: graph.title })).toBeVisible()
+})
+
+test('cloud explanations display verified citations and reject unknown evidence', async ({ page }) => {
+  let invalid = false
+  await stubCloud(page, () => ({ claims: [{
+    text: invalid ? 'Unverified narrative' : 'The baseline trace starts at the gateway.',
+    metricKeys: ['Baseline:success'],
+    eventIds: [invalid ? 'Baseline:999999' : 'Baseline:1'],
+  }] }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Inject provider outage' }).click()
+  await page.getByLabel('Question about these runs').fill('What happened in these runs?')
+  const ask = page.getByRole('button', { name: 'Ask cloud Gemini' })
+  await ask.click()
+  await expect(page.getByText('Baseline:success = 600')).toBeVisible()
+  await expect(page.getByText(/Baseline:1 · .* · arrival · gateway/)).toBeVisible()
+  invalid = true
+  await ask.click()
+  await expect(page.getByText(/Cloud explanation unavailable/)).toBeVisible()
+  await expect(page.getByText('Unverified narrative')).toHaveCount(0)
+  await expect(page.getByRole('columnheader', { name: 'Faulted', exact: true })).toBeVisible()
 })

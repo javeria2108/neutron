@@ -89,6 +89,10 @@
 .run-summary,.comparison{overflow:auto}.run-summary h2{font-size:19px}
 .run-summary dl{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0}
 .run-summary dd{font-weight:700}.comparison summary,.run-summary summary{cursor:pointer;font-weight:600}
+.run-explanation h2{font-size:19px;margin-bottom:8px}
+.run-explanation form{display:flex;align-items:end;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.run-explanation label{display:grid;gap:4px;flex:1;min-width:min(100%,240px)}
+.run-explanation ul{padding-left:20px}
 .trace-scroll{max-height:260px;overflow:auto}.workbench table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
 .workbench td,.workbench th{padding:7px;border-bottom:1px solid var(--line)}
 .connection-warning,.run-error{color:#7f4313;background:#fff3de;padding:8px 12px}
