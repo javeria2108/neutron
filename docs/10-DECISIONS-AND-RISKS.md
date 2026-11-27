@@ -68,3 +68,7 @@ Approval retains the full generated proposal in the workbench. The overview and 
 Engine 1.2 acknowledges successful publication after broker processing. A queue assigns one worker edge round-robin per job. A topic schedules one independent delivery per subscriber. Queue capacity bounds pending deliveries; topic admission reserves room for every subscriber atomically. Dispatch waits through a scheduled consumer outage. Once dispatched, normal attempt deadlines, retries and worker capacity apply. Outstanding work drains after arrivals stop. Peak backlog counts pending deliveries across brokers and excludes in-flight work. Repeated producer attempts can publish duplicates.
 
 Generation uses Gemini 4 Hydrogen and the full diagram catalog. The preview offers the overview and named gateway-rooted workflows. Diagram-only components can appear in either view; execution reports which components still require models.
+
+## ADR-015: Resolve named edit targets before inference
+
+The application resolves service names, IDs, and dependency endpoints against the active canvas draft. Other workflows remain separate drafts. The model receives settings for one resolved target and its output must pass the existing command validator. Plain named breaker toggles use the same preview and approval flow with deterministic defaults.

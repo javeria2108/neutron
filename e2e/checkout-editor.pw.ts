@@ -1,5 +1,20 @@
 import { expect, test } from '@playwright/test'
 
+test('preview a named breaker edit and preserve the completed run on approval', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Run simulation' }).click()
+  const baseline = page.getByRole('heading', { name: 'Baseline results' })
+  await expect(baseline).toBeVisible()
+  await page.getByLabel('Architecture prompt').fill('Enable the circuit breaker between Orders and Database')
+  await page.getByRole('button', { name: 'Preview edit' }).click()
+  await expect(page.getByText('Orders → Database · Circuit breaker')).toBeVisible()
+  await expect(page.getByText(/Disabled → Enabled/)).toBeVisible()
+  await page.getByRole('button', { name: 'Apply to draft' }).click()
+  await expect(baseline).toBeVisible()
+  await page.getByRole('button', { name: 'Preview edit' }).click()
+  await expect(page.getByText(/Circuit breaker is already Enabled/)).toBeVisible()
+})
+
 test('primary and secondary button labels remain readable on hover', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Architecture prompt').fill('Design a booking system')

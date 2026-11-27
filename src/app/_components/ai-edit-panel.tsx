@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { generateArchitecture } from "@/adapters/ai/generate-architecture";
 import type { readArchitecture } from "@/application/generated-architecture";
+import { namedBreakerAction, resolveEditTarget } from "@/application/edit-target";
 import { requestArchitecture } from "@/application/request-architecture";
 import { z } from "zod";
 import { detectLocalModel, requestEdit, type InferencePath } from "@/adapters/ai/firebase-feasibility";
@@ -13,7 +14,7 @@ import type { Scenario } from "@/domain/model/scenario";
 interface Props {
   onGenerate: (graph: ReturnType<typeof readArchitecture>, view: number) => void;
   scenario: Scenario;
-  target: EditTarget;
+  target?: EditTarget;
   onApply: (draft: Scenario) => void;
 }
 
@@ -27,8 +28,9 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [measurement, setMeasurement] = useState("");
-  const [proposal, setProposal] = useState<{ original: Scenario; preview: EditPreview } | null>(null);
-  const name = target.type === "service" ? target.name : `${target.from} → ${target.to}`;
+  const [proposal, setProposal] = useState<{ original: Scenario; preview: EditPreview; name: string } | null>(null);
+  const breakerAction = namedBreakerAction(request);
+  const generating = mode === "generate" && !breakerAction;
   const stale = proposal !== null && proposal.original !== scenario;
 
   async function propose(path: InferencePath) {
@@ -38,9 +40,10 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
     setGenerated(null);
     setProposal(null);
     setMeasurement("");
-    setStatus(path === "local" ? "Checking the on-device model…" : "Waiting for cloud Gemini…");
+    setStatus("");
     try {
-      if (mode === "generate") {
+      if (generating) {
+        setStatus("Waiting for cloud Gemini…");
         const graph = await requestArchitecture(
           correction => generateArchitecture(instruction, correction),
           scenario.workload,
@@ -53,26 +56,36 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
         setStatus("Review this architecture before replacing the canvas and its runs.");
         return;
       }
-      if (path === "local") {
-        if (await detectLocalModel() === "unavailable") {
-          setStatus("Local AI is unavailable on this device. Manual editing is available.");
-          return;
+      const resolved = resolveEditTarget(scenario, instruction, target);
+      const name = resolved.type === "service" ? resolved.name : `${resolved.from} → ${resolved.to}`;
+      let value: unknown;
+      if (breakerAction && resolved.type === "dependency") {
+        value = breakerAction === "enable"
+          ? { kind: "enableCircuitBreaker", edgeId: resolved.id, ...resolved.breaker }
+          : { kind: "disableCircuitBreaker", edgeId: resolved.id };
+      } else {
+        setStatus(path === "local" ? "Checking the on-device model…" : "Waiting for cloud Gemini…");
+        if (path === "local") {
+          if (await detectLocalModel() === "unavailable") {
+            setStatus("Local AI is unavailable on this device. Manual editing is available.");
+            return;
+          }
+          setStatus("Requesting a local edit…");
         }
-        setStatus("Requesting a local edit…");
+        const result = await requestEdit(path, resolved, instruction, () => setStatus("Preparing the on-device model…"));
+        setMeasurement(`Observed source: ${result.source}. Inference: ${result.elapsedMs} ms.`);
+        value = JSON.parse(result.text);
       }
-      const result = await requestEdit(path, target, instruction, () => setStatus("Preparing the on-device model…"));
-      setMeasurement(`Observed source: ${result.source}. Inference: ${result.elapsedMs} ms.`);
-      const value: unknown = JSON.parse(result.text);
       if (clarification.safeParse(value).success) {
         setStatus(`Describe one setting to change on ${name}.`);
         return;
       }
-      const preview = previewEdit(scenario, target.id, value);
+      const preview = previewEdit(scenario, resolved.id, value);
       if (preview.before === preview.after) {
         setStatus(`${preview.field} is already ${preview.before}.`);
         return;
       }
-      setProposal({ original: scenario, preview });
+      setProposal({ original: scenario, preview, name });
       setStatus("Review the proposed change.");
     } catch (error) {
       if (error instanceof SyntaxError || error instanceof z.ZodError) {
@@ -91,23 +104,23 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
     <section className="ai-edit" aria-label="AI edit">
       <form className="composer" onSubmit={event => {
         event.preventDefault();
-        void propose(mode === "generate" ? "cloud" : "local");
+        void propose(generating ? "cloud" : "local");
       }}>
         <span className="prompt-symbol" aria-hidden="true">✦</span>
         <input aria-label="Architecture prompt" value={request} maxLength={2000} disabled={busy}
-          placeholder={mode === "generate" ? "Describe a system to generate its architecture…" : `Describe an edit to ${name}…`}
+          placeholder={mode === "generate" ? "Describe a system or ask to change a circuit breaker…" : "Name a service or dependency and describe the edit…"}
           onChange={event => { setRequest(event.target.value); setProposal(null); setGenerated(null); setMeasurement(""); setStatus(""); }} />
         <select aria-label="Prompt action" value={mode} disabled={busy} onChange={event => {
           setMode(event.target.value === "generate" ? "generate" : "edit");
           setProposal(null); setGenerated(null); setStatus(""); setMeasurement("");
         }}>
           <option value="generate">Generate graph</option>
-          <option value="edit">Edit selection</option>
+          <option value="edit">Edit architecture</option>
         </select>
-        <button className="send" disabled={busy || !request.trim()} type="submit">{busy ? "Working…" : mode === "generate" ? "Generate ↗" : "Propose locally"}</button>
-        {mode === "edit" && <button type="button" disabled={busy || !request.trim()} onClick={() => propose("cloud")}>Send to cloud</button>}
+        <button className="send" disabled={busy || !request.trim()} type="submit">{busy ? "Working…" : generating ? "Generate ↗" : breakerAction ? "Preview edit" : "Propose locally"}</button>
+        {mode === "edit" && !breakerAction && <button type="button" disabled={busy || !request.trim()} onClick={() => propose("cloud")}>Send to cloud</button>}
       </form>
-      {(request || mode === "edit") && <small>{mode === "generate" ? "Generate sends your description to cloud Gemini." : `Editing ${name}. Cloud sends the request and the selected settings.`}</small>}
+      {(request || mode === "edit") && !breakerAction && <small>{generating ? "Generate sends your description to cloud Gemini." : "Cloud sends the request and settings for the resolved service or dependency."}</small>}
       {generated && generated.original === scenario && <div className="proposal">
         <strong>{generated.graph.title}</strong>
         <label>Canvas view <select value={workflow} onChange={event => chooseWorkflow(Number(event.target.value))}>
@@ -120,11 +133,11 @@ export default function AiEditPanel({ scenario, target, onApply, onGenerate }: P
         <button type="button" onClick={() => { setGenerated(null); setStatus("Proposal discarded."); }}>Discard</button>
       </div>}
       <div aria-live="polite">
-        {status && <p>{stale || (generated && generated.original !== scenario) ? "The draft changed. Generate a fresh preview." : status}</p>}
+        {stale || (generated && generated.original !== scenario) ? <p>The draft changed. Generate a fresh preview.</p> : status && <p>{status}</p>}
         {measurement && <p>{measurement}</p>}
       </div>
       {proposal && !stale && <div>
-        <strong>{proposal.preview.field}</strong>
+        <strong>{proposal.name} · {proposal.preview.field}</strong>
         <p>{proposal.preview.before} → {proposal.preview.after}</p>
         <div className="ai-actions">
           <button type="button" onClick={() => {

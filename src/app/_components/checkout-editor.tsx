@@ -27,7 +27,7 @@ import { SettingsInspector } from "./SettingsInspector";
 import { ComponentCatalog } from "./ComponentCatalog";
 import { nodeLabel, serviceClass } from "./service-node";
 import AiEditPanel from "./ai-edit-panel";
-import { getEditTarget } from "./edit-target";
+import { getEditTarget } from "@/application/edit-target";
 import { graphLayout } from "./graph-layout";
 import type { readArchitecture } from "@/application/generated-architecture";
 import type { RunResult } from "@/domain/simulation/run-simulation";
@@ -257,7 +257,7 @@ function Workbench() {
           <div><div className="workspace-path">Workspace <span>/</span> Architecture</div><h1>{architecture?.title ?? "Checkout Under Pressure"}</h1></div>
           <button className="run-button" onClick={() => execute(scenario)}><span aria-hidden="true">▷</span> Run simulation</button>
         </div>
-        {editTarget && <AiEditPanel key={editTarget.id} scenario={scenario} target={editTarget} onApply={setScenario} onGenerate={replaceGraph} />}
+        <AiEditPanel scenario={scenario} target={editTarget} onApply={setScenario} onGenerate={replaceGraph} />
       <div className="workspace">
         <section aria-label="Architecture editor">
           <div className="toolbar">
